@@ -1,0 +1,294 @@
+const { createApp, ref, computed, onMounted } = Vue;
+
+// ============================================================
+// KONFIGURASI SUPABASE -- GANTI 2 BARIS INI
+// Ambil dari: Supabase Dashboard > Project Settings > API
+// PAKE "anon" "public" key -- JANGAN PERNAH pake service_role di sini,
+// soalnya file JS ini kebaca semua orang yang buka website-nya.
+// ============================================================
+const SUPABASE_URL = "GANTI_DENGAN_SUPABASE_URL_LU";
+const SUPABASE_ANON_KEY = "GANTI_DENGAN_ANON_PUBLIC_KEY_LU";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Bikin nomor PR/PO dinamis, format sama kayak sebelumnya: PREFIX-2026-HHMMSS
+function generateNumber(prefix) {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${prefix}-2026-${hh}${mm}${ss}`;
+}
+
+// Cari kolom di data Excel biarpun beda kapital/spasi/underscore
+function findCol(row, ...candidates) {
+    const normalize = (s) => String(s).trim().toLowerCase().replace(/[\s_]/g, '');
+    const keys = Object.keys(row);
+    for (const cand of candidates) {
+        const target = normalize(cand);
+        const found = keys.find((k) => normalize(k) === target);
+        if (found) return found;
+    }
+    return null;
+}
+
+createApp({
+    setup() {
+        // STATE AUTENTIKASI
+        const isLoggedIn = ref(false);
+        const userEmail = ref('');
+        const userRole = ref('');
+        const loginForm = ref({ email: '', password: '' });
+        const loginError = ref('');
+        const isLoading = ref(false);
+
+        const currentTab = ref('dashboard');
+        const prs = ref([]);
+        const pos = ref([]);
+        const masterBranches = ref([]);
+        const masterProducts = ref([]);
+        const newBranch = ref('');
+        const newProduct = ref('');
+
+        const form = ref({ branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' });
+        const searchQuery = ref('');
+        const filterStatus = ref('');
+
+        const pendingPRs = computed(() => prs.value.filter(pr => pr.status === 'Pending'));
+        const filteredPRs = computed(() => {
+            let result = prs.value;
+            if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
+            if (searchQuery.value) {
+                const query = searchQuery.value.toLowerCase();
+                result = result.filter(pr => pr.pr_number.toLowerCase().includes(query));
+            }
+            return result;
+        });
+
+        const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+        };
+
+        // Ambil role user dari tabel user_roles (RLS cuma ngebolehin liat row diri sendiri)
+        const fetchRole = async (email) => {
+            const { data, error } = await supabaseClient
+                .from('user_roles')
+                .select('role')
+                .ilike('email', email)
+                .maybeSingle();
+            if (error) console.error('Gagal ambil role:', error);
+            return data?.role || 'SM';
+        };
+
+        const handleLogin = async () => {
+            isLoading.value = true;
+            loginError.value = '';
+            try {
+                const usernameInput = loginForm.value.email || '';
+                const fullEmail = usernameInput.includes('@') ? usernameInput : `${usernameInput}@abuyagroup.com`;
+
+                const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+                    email: fullEmail,
+                    password: loginForm.value.password
+                });
+
+                if (authError) {
+                    loginError.value = 'Username atau Password salah / Belum terdaftar!';
+                    return;
+                }
+
+                isLoggedIn.value = true;
+                userEmail.value = usernameInput;
+                userRole.value = await fetchRole(fullEmail);
+                await fetchData();
+            } catch (err) {
+                console.error('Error login:', err);
+                loginError.value = 'Gagal terhubung ke Supabase.';
+            } finally {
+                isLoading.value = false;
+            }
+        };
+
+        const handleLogout = async () => {
+            await supabaseClient.auth.signOut();
+            isLoggedIn.value = false;
+            userEmail.value = '';
+            userRole.value = '';
+            loginForm.value = { email: '', password: '' };
+            currentTab.value = 'dashboard';
+        };
+
+        const fetchData = async () => {
+            try {
+                const [prRes, poRes, branchRes, productRes] = await Promise.all([
+                    supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, item_name, qty, total_price)').order('created_at', { ascending: false }),
+                    supabaseClient.from('master_branches').select('*').order('branch_name'),
+                    supabaseClient.from('master_products').select('*').order('name'),
+                ]);
+                prs.value = prRes.data || [];
+                pos.value = poRes.data || [];
+                masterBranches.value = branchRes.data || [];
+                masterProducts.value = productRes.data || [];
+            } catch (err) {
+                console.error('Gagal ambil data:', err);
+            }
+        };
+
+        const submitBranch = async () => {
+            const branchName = (newBranch.value || '').trim();
+            if (!branchName) return;
+
+            const { error } = await supabaseClient.from('master_branches').insert({ branch_name: branchName, branch_code: '' });
+            if (error) {
+                alert('Gagal menambahkan cabang: ' + error.message);
+                return;
+            }
+            newBranch.value = '';
+            fetchData();
+        };
+
+        const submitProduct = async () => {
+            const productName = (newProduct.value || '').trim();
+            if (!productName) return;
+
+            const { error } = await supabaseClient.from('master_products').insert({ name: productName });
+            if (error) {
+                alert('Gagal menambahkan produk: ' + error.message);
+                return;
+            }
+            newProduct.value = '';
+            fetchData();
+        };
+
+        const submitPR = async () => {
+            try {
+                const totalPrice = (form.value.qty || 0) * (form.value.price || 0);
+                const { error } = await supabaseClient.from('purchase_requests').insert({
+                    pr_number: generateNumber('PR'),
+                    branch_name: form.value.branch_name,
+                    item_name: form.value.item,
+                    qty: form.value.qty,
+                    price: form.value.price,
+                    total_price: totalPrice,
+                    required_date: form.value.required_date || null,
+                    notes: form.value.notes,
+                    status: 'Pending'
+                });
+
+                if (error) {
+                    alert('Gagal submit PR: ' + error.message);
+                    return;
+                }
+
+                form.value = { branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' };
+                await fetchData();
+                currentTab.value = 'daftar-pr';
+            } catch (err) {
+                alert('Gagal submit PR');
+            }
+        };
+
+        const approvePR = async (id) => {
+            if (!confirm('Approve PR ini dan rilis PO?')) return;
+
+            const { error: updateError } = await supabaseClient.from('purchase_requests').update({ status: 'Approved' }).eq('id', id);
+            if (updateError) {
+                alert('Gagal approve PR: ' + updateError.message);
+                return;
+            }
+
+            const { error: poError } = await supabaseClient.from('purchase_orders').insert({
+                po_number: generateNumber('PO'),
+                pr_id: id
+            });
+            if (poError) alert('PR ke-approve, tapi gagal bikin PO: ' + poError.message);
+
+            fetchData();
+        };
+
+        const rejectPR = async (id) => {
+            if (!confirm('Yakin mau menolak PR ini?')) return;
+            const { error } = await supabaseClient.from('purchase_requests').update({ status: 'Rejected' }).eq('id', id);
+            if (error) alert('Gagal menolak PR: ' + error.message);
+            fetchData();
+        };
+
+        // UPLOAD EXCEL -- parse langsung di browser pake SheetJS, gak lewat backend sama sekali
+        const handleFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            isLoading.value = true;
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    alert('File Excel kosong!');
+                    return;
+                }
+
+                const nameCol = findCol(rows[0], 'Branch Name', 'branch_name');
+                if (!nameCol) {
+                    alert(`Gagal! Kolom nama cabang tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
+                    return;
+                }
+                const codeCol = findCol(rows[0], 'Branch Code', 'branch_code');
+
+                const payload = rows
+                    .map((row) => ({
+                        branch_name: String(row[nameCol] ?? '').trim(),
+                        branch_code: codeCol ? String(row[codeCol] ?? '').trim() : ''
+                    }))
+                    .filter((r) => r.branch_name && r.branch_name.toLowerCase() !== 'nan');
+
+                if (payload.length === 0) {
+                    alert('Gak ada baris valid buat diimport.');
+                    return;
+                }
+
+                // upsert + ignoreDuplicates biar cabang yang udah ada gak bikin gagal semua batch
+                const { error } = await supabaseClient
+                    .from('master_branches')
+                    .upsert(payload, { onConflict: 'branch_name', ignoreDuplicates: true });
+
+                if (error) {
+                    alert('Gagal upload: ' + error.message);
+                    return;
+                }
+
+                alert(`Berhasil diproses ${payload.length} baris cabang!`);
+                fetchData();
+            } catch (err) {
+                console.error(err);
+                alert('Gagal memproses file Excel.');
+            } finally {
+                isLoading.value = false;
+                event.target.value = '';
+            }
+        };
+
+        // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
+        onMounted(async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user?.email) {
+                isLoggedIn.value = true;
+                userEmail.value = session.user.email.split('@')[0];
+                userRole.value = await fetchRole(session.user.email);
+                fetchData();
+            }
+        });
+
+        return {
+            isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
+            currentTab, prs, pos, form, pendingPRs, filteredPRs, searchQuery, filterStatus,
+            masterBranches, masterProducts, newBranch, newProduct, submitBranch, handleFileUpload, submitProduct,
+            formatRp, formatDate, submitPR, approvePR, rejectPR
+        };
+    }
+}).mount('#app');
