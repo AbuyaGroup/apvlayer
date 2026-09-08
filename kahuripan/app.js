@@ -6,8 +6,8 @@ const { createApp, ref, computed, onMounted } = Vue;
 // PAKE "anon" "public" key -- JANGAN PERNAH pake service_role di sini,
 // soalnya file JS ini kebaca semua orang yang buka website-nya.
 // ============================================================
-const SUPABASE_URL = "GANTI_DENGAN_SUPABASE_URL_LU";
-const SUPABASE_ANON_KEY = "GANTI_DENGAN_ANON_PUBLIC_KEY_LU";
+const SUPABASE_URL = "https://onruaqagzmeiyvpvjhve.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ucnVhcWFnem1laXl2cHZqaHZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTM4NTAsImV4cCI6MjEwNDQyOTg1MH0._LF6NqW1uvcz2lq-d8LY2GOcyUak7M592wNhA7uG7Rk";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
