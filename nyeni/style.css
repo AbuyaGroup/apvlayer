@@ -105,3 +105,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .empty-state{ text-align:center; padding:68px 20px; border:1px dashed #ccd7e8; border-radius:18px; background:rgba(255,255,255,.6); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Tabel yang bisa di-scroll vertikal, header-nya nempel (sticky) pas discroll */
+.table-scroll{ max-height: 460px; overflow-y: auto; }
+.table-scroll thead th{ position: sticky; top: 0; z-index: 1; }

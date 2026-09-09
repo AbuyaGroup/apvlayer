@@ -47,18 +47,12 @@ createApp({
         const pos = ref([]);
         const masterBranches = ref([]);
         const masterProducts = ref([]);
-        const newBranchBrand = ref('');
-        const newBranchCabang = ref('');
-        const newProduct = ref('');
-
-        // Daftar Brand & Cabang buat dropdown "Tambah Cabang Baru".
-        // Tinggal tambah/edit isi array di bawah ini sesuai kebutuhan lu.
-        const brandOptions = ['Almaz Fried Chicken', 'Kebuli Abuya'];
-        const cabangOptions = ['Kota Bintang', 'Bintara', 'Galaxy', 'Thamrin', 'Kranggan'];
 
         const form = ref({ branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' });
         const searchQuery = ref('');
         const filterStatus = ref('');
+        const branchSearchQuery = ref('');
+        const productSearchQuery = ref('');
 
         const pendingPRs = computed(() => prs.value.filter(pr => pr.status === 'Pending'));
         const filteredPRs = computed(() => {
@@ -69,6 +63,18 @@ createApp({
                 result = result.filter(pr => pr.pr_number.toLowerCase().includes(query));
             }
             return result;
+        });
+
+        const filteredBranches = computed(() => {
+            if (!branchSearchQuery.value) return masterBranches.value;
+            const query = branchSearchQuery.value.toLowerCase();
+            return masterBranches.value.filter(b => (b.branch_name || '').toLowerCase().includes(query));
+        });
+
+        const filteredProducts = computed(() => {
+            if (!productSearchQuery.value) return masterProducts.value;
+            const query = productSearchQuery.value.toLowerCase();
+            return masterProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
@@ -143,32 +149,56 @@ createApp({
             }
         };
 
-        const submitBranch = async () => {
-            if (!newBranchBrand.value || !newBranchCabang.value) return;
-            // Digabung jadi format yang sama kayak data yang udah ada: "Brand - Cabang"
-            const branchName = `${newBranchBrand.value} - ${newBranchCabang.value}`.trim();
+        // UPLOAD EXCEL PRODUK -- satu-satunya cara nambah produk sekarang
+        const handleProductFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
 
-            const { error } = await supabaseClient.from('master_branches').insert({ branch_name: branchName, branch_code: '' });
-            if (error) {
-                alert('Gagal menambahkan cabang: ' + error.message);
-                return;
+            isLoading.value = true;
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    alert('File Excel kosong!');
+                    return;
+                }
+
+                const nameCol = findCol(rows[0], 'Product Name', 'product_name', 'name', 'nama_produk', 'nama produk');
+                if (!nameCol) {
+                    alert(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
+                    return;
+                }
+
+                const payload = rows
+                    .map((row) => ({ name: String(row[nameCol] ?? '').trim() }))
+                    .filter((r) => r.name && r.name.toLowerCase() !== 'nan');
+
+                if (payload.length === 0) {
+                    alert('Gak ada baris valid buat diimport.');
+                    return;
+                }
+
+                const { error } = await supabaseClient
+                    .from('master_products')
+                    .upsert(payload, { onConflict: 'name', ignoreDuplicates: true });
+
+                if (error) {
+                    alert('Gagal upload: ' + error.message);
+                    return;
+                }
+
+                alert(`Berhasil diproses ${payload.length} baris produk!`);
+                fetchData();
+            } catch (err) {
+                console.error(err);
+                alert('Gagal memproses file Excel.');
+            } finally {
+                isLoading.value = false;
+                event.target.value = '';
             }
-            newBranchBrand.value = '';
-            newBranchCabang.value = '';
-            fetchData();
-        };
-
-        const submitProduct = async () => {
-            const productName = (newProduct.value || '').trim();
-            if (!productName) return;
-
-            const { error } = await supabaseClient.from('master_products').insert({ name: productName });
-            if (error) {
-                alert('Gagal menambahkan produk: ' + error.message);
-                return;
-            }
-            newProduct.value = '';
-            fetchData();
         };
 
         const submitPR = async () => {
@@ -295,8 +325,9 @@ createApp({
         return {
             isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, searchQuery, filterStatus,
-            masterBranches, masterProducts, newBranchBrand, newBranchCabang, brandOptions, cabangOptions,
-            newProduct, submitBranch, handleFileUpload, submitProduct,
+            masterBranches, masterProducts,
+            branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
+            handleFileUpload, handleProductFileUpload,
             formatRp, formatDate, submitPR, approvePR, rejectPR
         };
     }

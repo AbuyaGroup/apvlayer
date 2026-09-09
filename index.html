@@ -102,44 +102,27 @@
                     <h2 style="margin-bottom: 24px;">Master Data - Branch</h2>
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1);">
-                                <form @submit.prevent="submitBranch">
-                                    <div class="field">
-                                        <label>Brand</label>
-                                        <select v-model="newBranchBrand" required>
-                                            <option value="" disabled>-- Pilih Brand --</option>
-                                            <option v-for="brand in brandOptions" :key="brand" :value="brand">{{ brand }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="field">
-                                        <label>Cabang</label>
-                                        <select v-model="newBranchCabang" required>
-                                            <option value="" disabled>-- Pilih Cabang --</option>
-                                            <option v-for="cabang in cabangOptions" :key="cabang" :value="cabang">{{ cabang }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="field" v-if="newBranchBrand && newBranchCabang">
-                                        <label>Preview Nama Cabang</label>
-                                        <input type="text" :value="`${newBranchBrand} - ${newBranchCabang}`" readonly style="background: var(--surface-0);">
-                                    </div>
-                                    <button type="submit" class="btn-primary w-100 mb-2">Simpan Cabang</button>
-                                </form>
-                                <!-- TOMBOL UPLOAD EXCEL -->
-                                <div style="border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; text-align: center;">
-                                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Atau upload massal (.xlsx)</p>
-                                    <input type="file" ref="fileInput" @change="handleFileUpload" accept=".xlsx, .xls" style="display: none;">
-                                    <button type="button" class="btn-ghost w-100" @click="$refs.fileInput.click()">
-                                        <i class="bi bi-file-earmark-excel me-1"></i> Upload Excel
-                                    </button>
-                                </div>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah cabang cuma lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Branch Name</b> (wajib), <b>Branch Code</b> (opsional).</p>
+                                <input type="file" ref="branchFileInput" @change="handleFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.branchFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
                             </div>
                         </div>
                         <div class="col-md-8">
-                            <div class="produk-table-wrap">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama cabang..." v-model="branchSearchQuery">
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
                                     <thead><tr><th>ID</th><th>Nama Cabang</th><th>Kode</th></tr></thead>
                                     <tbody>
-                                        <tr v-for="b in masterBranches" :key="b.id"><td style="color: var(--muted);">{{ b.id }}</td><td class="fw-bold">{{ b.branch_name }}</td><td>{{ b.branch_code }}</td></tr>
+                                        <tr v-for="b in filteredBranches" :key="b.id"><td style="color: var(--muted);">{{ b.id }}</td><td class="fw-bold">{{ b.branch_name }}</td><td>{{ b.branch_code }}</td></tr>
+                                        <tr v-if="filteredBranches.length === 0"><td colspan="3" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -153,19 +136,27 @@
                     <h2 style="margin-bottom: 24px;">Master Data - Product</h2>
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1);">
-                                <form @submit.prevent="submitProduct">
-                                    <div class="field"><label>Tambah Produk Baru</label><input type="text" v-model="newProduct" required></div>
-                                    <button type="submit" class="btn-primary w-100">Simpan Produk</button>
-                                </form>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah produk cuma lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Product Name</b> (wajib).</p>
+                                <input type="file" ref="productFileInput" @change="handleProductFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.productFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
                             </div>
                         </div>
                         <div class="col-md-8">
-                            <div class="produk-table-wrap">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama produk..." v-model="productSearchQuery">
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
                                     <thead><tr><th>ID</th><th>Nama Produk / Barang</th></tr></thead>
                                     <tbody>
-                                        <tr v-for="p in masterProducts" :key="p.id"><td style="color: var(--muted);">{{ p.id }}</td><td class="fw-bold">{{ p.name }}</td></tr>
+                                        <tr v-for="p in filteredProducts" :key="p.id"><td style="color: var(--muted);">{{ p.id }}</td><td class="fw-bold">{{ p.name }}</td></tr>
+                                        <tr v-if="filteredProducts.length === 0"><td colspan="2" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
