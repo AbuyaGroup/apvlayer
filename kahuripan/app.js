@@ -47,8 +47,14 @@ createApp({
         const pos = ref([]);
         const masterBranches = ref([]);
         const masterProducts = ref([]);
-        const newBranch = ref('');
+        const newBranchBrand = ref('');
+        const newBranchCabang = ref('');
         const newProduct = ref('');
+
+        // Daftar Brand & Cabang buat dropdown "Tambah Cabang Baru".
+        // Tinggal tambah/edit isi array di bawah ini sesuai kebutuhan lu.
+        const brandOptions = ['Almaz Fried Chicken', 'Kebuli Abuya'];
+        const cabangOptions = ['Kota Bintang', 'Bintara', 'Galaxy', 'Thamrin', 'Kranggan'];
 
         const form = ref({ branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' });
         const searchQuery = ref('');
@@ -138,15 +144,17 @@ createApp({
         };
 
         const submitBranch = async () => {
-            const branchName = (newBranch.value || '').trim();
-            if (!branchName) return;
+            if (!newBranchBrand.value || !newBranchCabang.value) return;
+            // Digabung jadi format yang sama kayak data yang udah ada: "Brand - Cabang"
+            const branchName = `${newBranchBrand.value} - ${newBranchCabang.value}`.trim();
 
             const { error } = await supabaseClient.from('master_branches').insert({ branch_name: branchName, branch_code: '' });
             if (error) {
                 alert('Gagal menambahkan cabang: ' + error.message);
                 return;
             }
-            newBranch.value = '';
+            newBranchBrand.value = '';
+            newBranchCabang.value = '';
             fetchData();
         };
 
@@ -287,7 +295,8 @@ createApp({
         return {
             isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, searchQuery, filterStatus,
-            masterBranches, masterProducts, newBranch, newProduct, submitBranch, handleFileUpload, submitProduct,
+            masterBranches, masterProducts, newBranchBrand, newBranchCabang, brandOptions, cabangOptions,
+            newProduct, submitBranch, handleFileUpload, submitProduct,
             formatRp, formatDate, submitPR, approvePR, rejectPR
         };
     }

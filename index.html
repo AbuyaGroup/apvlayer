@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="nyeni/style.css">
+    <link rel="stylesheet" href="style.css">
 
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -104,7 +104,24 @@
                         <div class="col-md-4">
                             <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1);">
                                 <form @submit.prevent="submitBranch">
-                                    <div class="field"><label>Tambah Cabang Baru</label><input type="text" v-model="newBranch" required></div>
+                                    <div class="field">
+                                        <label>Brand</label>
+                                        <select v-model="newBranchBrand" required>
+                                            <option value="" disabled>-- Pilih Brand --</option>
+                                            <option v-for="brand in brandOptions" :key="brand" :value="brand">{{ brand }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="field">
+                                        <label>Cabang</label>
+                                        <select v-model="newBranchCabang" required>
+                                            <option value="" disabled>-- Pilih Cabang --</option>
+                                            <option v-for="cabang in cabangOptions" :key="cabang" :value="cabang">{{ cabang }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="field" v-if="newBranchBrand && newBranchCabang">
+                                        <label>Preview Nama Cabang</label>
+                                        <input type="text" :value="`${newBranchBrand} - ${newBranchCabang}`" readonly style="background: var(--surface-0);">
+                                    </div>
                                     <button type="submit" class="btn-primary w-100 mb-2">Simpan Cabang</button>
                                 </form>
                                 <!-- TOMBOL UPLOAD EXCEL -->
@@ -250,6 +267,6 @@
     </div>
 </div>
 
-<script src="kahuripan/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
