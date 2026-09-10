@@ -267,7 +267,7 @@
                         <table class="produk-table">
                             <thead><tr><th>PO Number</th><th>PR Reference</th><th>Release Date</th><th>Item Processed</th><th>Total (Rp)</th></tr></thead>
                             <tbody>
-                                <tr v-for="po in pos" :key="po.id">
+                                <tr v-for="po in brandPOs" :key="po.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ po.po_number }}</td>
                                     <td><span style="background: var(--surface-0); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">{{ po.purchase_requests?.pr_number || '-' }}</span></td>
                                     <td>{{ formatDate(po.created_at) }}</td>
@@ -283,9 +283,9 @@
                 <div v-else-if="currentTab === 'dashboard'" key="dashboard">
                     <h2 style="margin-bottom: 24px;">Dashboard Overview</h2>
                     <div class="dc-grid">
-                        <div class="dc-card"><div class="dc-icon" style="background:linear-gradient(135deg, #4569ee, #263fb8); box-shadow:0 12px 22px rgba(52,85,219,.25);"><i class="bi bi-file-earmark-plus" style="color: white;"></i></div><h3 class="name">Total Request</h3><div class="qty">{{ prs.length }}</div></div>
+                        <div class="dc-card"><div class="dc-icon" style="background:linear-gradient(135deg, #4569ee, #263fb8); box-shadow:0 12px 22px rgba(52,85,219,.25);"><i class="bi bi-file-earmark-plus" style="color: white;"></i></div><h3 class="name">Total Request</h3><div class="qty">{{ brandPRs.length }}</div></div>
                         <div class="dc-card"><div class="dc-icon" style="background: var(--warn-soft);"><i class="bi bi-hourglass-split" style="color: var(--warn);"></i></div><h3 class="name">Pending Approval</h3><div class="qty">{{ pendingPRs.length }}</div></div>
-                        <div class="dc-card"><div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-cart-check" style="color: var(--success);"></i></div><h3 class="name">PO Released</h3><div class="qty" style="color: var(--success);">{{ pos.length }}</div></div>
+                        <div class="dc-card"><div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-cart-check" style="color: var(--success);"></i></div><h3 class="name">PO Released</h3><div class="qty" style="color: var(--success);">{{ brandPOs.length }}</div></div>
                     </div>
                 </div>
             </transition>

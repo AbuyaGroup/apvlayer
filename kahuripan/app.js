@@ -57,6 +57,7 @@ createApp({
         const backToBrandPicker = () => {
             selectedBrand.value = '';
             loginError.value = '';
+            try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
         };
 
         const currentTab = ref('dashboard');
@@ -71,9 +72,24 @@ createApp({
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
 
-        const pendingPRs = computed(() => prs.value.filter(pr => pr.status === 'Pending'));
+        // Brand yang lagi "aktif" di workspace ini: AM selalu kekunci ke brand-nya sendiri,
+        // Master ngikut brand yang dia pilih di layar login (biar pas masuk salah satu "kamar"
+        // brand, data brand yang satunya gak ikut ketarik).
+        const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
+
+        // Semua PR/PO di-scope ke activeBrand dulu -- ini yang bikin isi brand lain gak ikut nongol
+        const brandPRs = computed(() => {
+            if (!activeBrand.value) return prs.value;
+            return prs.value.filter(pr => pr.brand === activeBrand.value);
+        });
+        const brandPOs = computed(() => {
+            if (!activeBrand.value) return pos.value;
+            return pos.value.filter(po => po.purchase_requests?.brand === activeBrand.value);
+        });
+
+        const pendingPRs = computed(() => brandPRs.value.filter(pr => pr.status === 'Pending'));
         const filteredPRs = computed(() => {
-            let result = prs.value;
+            let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
             if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase();
@@ -94,10 +110,11 @@ createApp({
             return masterProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
-        // Dropdown cabang pas Buat PR -- AM cuma liat cabang brand-nya sendiri, Master liat semua
+        // Dropdown cabang pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
+        // Master: brand yang lagi dia buka)
         const brandBranches = computed(() => {
-            if (!userBrand.value) return masterBranches.value;
-            return masterBranches.value.filter(b => b.brand === userBrand.value);
+            if (!activeBrand.value) return masterBranches.value;
+            return masterBranches.value.filter(b => b.brand === activeBrand.value);
         });
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
@@ -147,6 +164,9 @@ createApp({
                 userEmail.value = usernameInput;
                 userRole.value = role;
                 userBrand.value = brand;
+                // Simpen brand yang lagi dibuka biar kalo halaman di-refresh, Master gak
+                // balik ngeliat semua brand lagi (workspace tetep ke-scope ke brand ini)
+                try { localStorage.setItem('activeBrandChoice', selectedBrand.value); } catch (e) {}
                 await fetchData();
             } catch (err) {
                 console.error('Error login:', err);
@@ -170,7 +190,7 @@ createApp({
             try {
                 const [prRes, poRes, branchRes, productRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
-                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, item_name, qty, total_price)').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, item_name, qty, total_price, brand)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
                 ]);
@@ -358,6 +378,13 @@ createApp({
         // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
         // (brand mismatch gak perlu dicek ulang di sini karena session ini emang udah lolos validasi pas login pertama)
         onMounted(async () => {
+            // Balikin brand yang terakhir dibuka (penting buat Master, yang gak kekunci
+            // brand-nya di database -- tanpa ini, refresh halaman bakal balik ngeliat semua brand lagi)
+            try {
+                const savedBrand = localStorage.getItem('activeBrandChoice');
+                if (savedBrand) selectedBrand.value = savedBrand;
+            } catch (e) {}
+
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user?.email) {
                 const { role, brand } = await fetchRoleAndBrand(session.user.email);
@@ -371,8 +398,8 @@ createApp({
 
         return {
             isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
-            selectedBrand, userBrand, backToBrandPicker,
-            currentTab, prs, pos, form, pendingPRs, filteredPRs, searchQuery, filterStatus,
+            selectedBrand, userBrand, activeBrand, backToBrandPicker,
+            currentTab, prs, pos, form, pendingPRs, filteredPRs, brandPRs, brandPOs, searchQuery, filterStatus,
             masterBranches, masterProducts, brandBranches,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
