@@ -32,6 +32,14 @@ function findCol(row, ...candidates) {
     return null;
 }
 
+// Tebak brand dari nama cabang, contoh: "Almaz Fried Chicken - Bintara" -> "Almaz Fried Chicken"
+function deriveBrandFromBranchName(branchName) {
+    const n = String(branchName || '').toLowerCase();
+    if (n.includes('almaz')) return 'Almaz Fried Chicken';
+    if (n.includes('kebuli')) return 'Kebuli Abuya';
+    return null;
+}
+
 createApp({
     setup() {
         // STATE AUTENTIKASI
@@ -41,6 +49,15 @@ createApp({
         const loginForm = ref({ email: '', password: '' });
         const loginError = ref('');
         const isLoading = ref(false);
+
+        // STATE BRAND -- selectedBrand = brand yang dipilih di layar sebelum login
+        // userBrand = brand ASLI yang nempel di akun (dari user_roles), null = Master (bebas semua brand)
+        const selectedBrand = ref('');
+        const userBrand = ref(null);
+        const backToBrandPicker = () => {
+            selectedBrand.value = '';
+            loginError.value = '';
+        };
 
         const currentTab = ref('dashboard');
         const prs = ref([]);
@@ -77,21 +94,27 @@ createApp({
             return masterProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
+        // Dropdown cabang pas Buat PR -- AM cuma liat cabang brand-nya sendiri, Master liat semua
+        const brandBranches = computed(() => {
+            if (!userBrand.value) return masterBranches.value;
+            return masterBranches.value.filter(b => b.brand === userBrand.value);
+        });
+
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
         const formatDate = (dateStr) => {
             if (!dateStr) return '-';
             return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         };
 
-        // Ambil role user dari tabel user_roles (RLS cuma ngebolehin liat row diri sendiri)
-        const fetchRole = async (email) => {
+        // Ambil role + brand user dari tabel user_roles (RLS cuma ngebolehin liat row diri sendiri)
+        const fetchRoleAndBrand = async (email) => {
             const { data, error } = await supabaseClient
                 .from('user_roles')
-                .select('role')
+                .select('role, brand')
                 .ilike('email', email)
                 .maybeSingle();
             if (error) console.error('Gagal ambil role:', error);
-            return data?.role || 'SM';
+            return { role: data?.role || 'SM', brand: data?.brand ?? null };
         };
 
         const handleLogin = async () => {
@@ -111,9 +134,19 @@ createApp({
                     return;
                 }
 
+                const { role, brand } = await fetchRoleAndBrand(fullEmail);
+
+                // Kalo akun ini kekunci ke brand tertentu (bukan Master) dan beda sama brand yang dipilih -> tolak
+                if (brand && brand !== selectedBrand.value) {
+                    await supabaseClient.auth.signOut();
+                    loginError.value = `Akun ini gak punya akses ke brand "${selectedBrand.value}".`;
+                    return;
+                }
+
                 isLoggedIn.value = true;
                 userEmail.value = usernameInput;
-                userRole.value = await fetchRole(fullEmail);
+                userRole.value = role;
+                userBrand.value = brand;
                 await fetchData();
             } catch (err) {
                 console.error('Error login:', err);
@@ -128,6 +161,7 @@ createApp({
             isLoggedIn.value = false;
             userEmail.value = '';
             userRole.value = '';
+            userBrand.value = null;
             loginForm.value = { email: '', password: '' };
             currentTab.value = 'dashboard';
         };
@@ -204,6 +238,11 @@ createApp({
         const submitPR = async () => {
             try {
                 const totalPrice = (form.value.qty || 0) * (form.value.price || 0);
+                // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
+                // yang bisa akses semua brand tetep ke-tag PR-nya dengan bener)
+                const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
+                const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
+
                 const { error } = await supabaseClient.from('purchase_requests').insert({
                     pr_number: generateNumber('PR'),
                     branch_name: form.value.branch_name,
@@ -213,6 +252,7 @@ createApp({
                     total_price: totalPrice,
                     required_date: form.value.required_date || null,
                     notes: form.value.notes,
+                    brand: prBrand,
                     status: 'Pending'
                 });
 
@@ -279,10 +319,14 @@ createApp({
                 const codeCol = findCol(rows[0], 'Branch Code', 'branch_code');
 
                 const payload = rows
-                    .map((row) => ({
-                        branch_name: String(row[nameCol] ?? '').trim(),
-                        branch_code: codeCol ? String(row[codeCol] ?? '').trim() : ''
-                    }))
+                    .map((row) => {
+                        const branch_name = String(row[nameCol] ?? '').trim();
+                        return {
+                            branch_name,
+                            branch_code: codeCol ? String(row[codeCol] ?? '').trim() : '',
+                            brand: deriveBrandFromBranchName(branch_name)
+                        };
+                    })
                     .filter((r) => r.branch_name && r.branch_name.toLowerCase() !== 'nan');
 
                 if (payload.length === 0) {
@@ -312,20 +356,24 @@ createApp({
         };
 
         // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
+        // (brand mismatch gak perlu dicek ulang di sini karena session ini emang udah lolos validasi pas login pertama)
         onMounted(async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user?.email) {
+                const { role, brand } = await fetchRoleAndBrand(session.user.email);
                 isLoggedIn.value = true;
                 userEmail.value = session.user.email.split('@')[0];
-                userRole.value = await fetchRole(session.user.email);
+                userRole.value = role;
+                userBrand.value = brand;
                 fetchData();
             }
         });
 
         return {
             isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
+            selectedBrand, userBrand, backToBrandPicker,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, searchQuery, filterStatus,
-            masterBranches, masterProducts,
+            masterBranches, masterProducts, brandBranches,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
             formatRp, formatDate, submitPR, approvePR, rejectPR

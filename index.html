@@ -21,28 +21,62 @@
 <body>
 
 <div id="app">
-    <!-- ============ SCREEN LOGIN ============ -->
-    <div v-if="!isLoggedIn" id="loginScreen">
-        <div class="login-card">
-            <div class="login-brand">
-                <div class="mark"><i class="bi bi-box-seam"></i></div>
-                <span>ABUYA GROUP</span>
+    <!-- ============ SEBELUM LOGIN ============ -->
+    <div v-if="!isLoggedIn">
+        <!-- ============ SCREEN PILIH BRAND ============ -->
+        <div v-if="!selectedBrand" id="loginScreen">
+            <div class="login-card">
+                <div class="login-brand">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>ABUYA GROUP</span>
+                </div>
+                <p class="sub">Pilih brand yang mau diakses</p>
+
+                <div class="brand-choice" @click="selectedBrand = 'Kebuli Abuya'">
+                    <div class="brand-choice-icon"><i class="bi bi-egg-fried"></i></div>
+                    <div>
+                        <div class="brand-choice-name">Kebuli Abuya</div>
+                        <div class="brand-choice-sub">Masuk sebagai Kebuli Abuya</div>
+                    </div>
+                    <i class="bi bi-chevron-right"></i>
+                </div>
+                <div class="brand-choice" @click="selectedBrand = 'Almaz Fried Chicken'">
+                    <div class="brand-choice-icon" style="background: var(--warn-soft);"><i class="bi bi-egg-fried" style="color: var(--warn);"></i></div>
+                    <div>
+                        <div class="brand-choice-name">Almaz Fried Chicken</div>
+                        <div class="brand-choice-sub">Masuk sebagai Almaz Fried Chicken</div>
+                    </div>
+                    <i class="bi bi-chevron-right"></i>
+                </div>
             </div>
-            <p class="sub">Login to access Purchase Request System</p>
-            <form @submit.prevent="handleLogin">
-                <div class="field">
-                    <label>Username</label>
-                    <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
-                </div>
-                <div class="field">
-                    <label>Password</label>
-                    <input type="password" v-model="loginForm.password" required>
-                </div>
-                <div v-if="loginError" class="login-error">{{ loginError }}</div>
-                <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
-                    {{ isLoading ? 'Loading...' : 'Sign In' }}
+        </div>
+
+        <!-- ============ SCREEN LOGIN ============ -->
+        <div v-else id="loginScreen">
+            <div class="login-card">
+                <button type="button" class="btn-ghost mb-3" @click="backToBrandPicker" style="padding:6px 12px; font-size:12px;">
+                    <i class="bi bi-arrow-left"></i> Ganti Brand
                 </button>
-            </form>
+                <div class="login-brand">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>ABUYA GROUP</span>
+                </div>
+                <p class="sub">Login sebagai <b>{{ selectedBrand }}</b></p>
+                <form @submit.prevent="handleLogin">
+                    <div class="field">
+                        <label>Username</label>
+                        <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
+                    </div>
+                    <div class="field">
+                        <label>Password</label>
+                        <input type="password" v-model="loginForm.password" required>
+                    </div>
+                    <div v-if="loginError" class="login-error">{{ loginError }}</div>
+                    <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
+                        {{ isLoading ? 'Loading...' : 'Sign In' }}
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -59,6 +93,7 @@
                 <div>
                     <div style="font-size: 13px; font-weight: 600; color: var(--ink);">{{ userEmail.split('@')[0] }}</div>
                     <div style="font-size: 11px; color: var(--primary); font-weight: 700;">Role: {{ userRole }}</div>
+                    <div style="font-size: 10px; color: var(--muted); font-weight: 600;">{{ userBrand || 'All Brands' }}</div>
                 </div>
                 <button class="btn-icon text-danger" @click="handleLogout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
             </div>
@@ -119,10 +154,10 @@
                             </div>
                             <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
-                                    <thead><tr><th>ID</th><th>Nama Cabang</th><th>Kode</th></tr></thead>
+                                    <thead><tr><th>ID</th><th>Nama Cabang</th><th>Kode</th><th>Brand</th></tr></thead>
                                     <tbody>
-                                        <tr v-for="b in filteredBranches" :key="b.id"><td style="color: var(--muted);">{{ b.id }}</td><td class="fw-bold">{{ b.branch_name }}</td><td>{{ b.branch_code }}</td></tr>
-                                        <tr v-if="filteredBranches.length === 0"><td colspan="3" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
+                                        <tr v-for="b in filteredBranches" :key="b.id"><td style="color: var(--muted);">{{ b.id }}</td><td class="fw-bold">{{ b.branch_name }}</td><td>{{ b.branch_code }}</td><td>{{ b.brand || '-' }}</td></tr>
+                                        <tr v-if="filteredBranches.length === 0"><td colspan="4" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -171,7 +206,7 @@
                         <form @submit.prevent="submitPR">
                             <div class="row">
                                 <div class="col-md-6"><div class="field"><label>Branch Name</label>
-                                    <select v-model="form.branch_name" required><option value="" disabled>-- Pilih Cabang --</option><option v-for="b in masterBranches" :key="b.id" :value="b.branch_name">{{ b.branch_name }}</option></select>
+                                    <select v-model="form.branch_name" required><option value="" disabled>-- Pilih Cabang --</option><option v-for="b in brandBranches" :key="b.id" :value="b.branch_name">{{ b.branch_name }}</option></select>
                                 </div></div>
                                 <div class="col-md-6"><div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div></div>
                             </div>
