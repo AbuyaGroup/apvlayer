@@ -159,24 +159,34 @@ createApp({
             return result;
         });
 
+        // Master Branch/Product SEKARANG ikut ke-scope brand yang lagi aktif juga.
+        // Cabang/produk yang brand-nya belum ketandain (NULL) tetep keliatan di semua brand,
+        // biar data lama yang belum sempet ditag gak ujug-ujug ilang.
+        const brandManagedBranches = computed(() => {
+            if (!activeBrand.value) return masterBranches.value;
+            return masterBranches.value.filter(b => !b.brand || b.brand === activeBrand.value);
+        });
+        const brandManagedProducts = computed(() => {
+            if (!activeBrand.value) return masterProducts.value;
+            return masterProducts.value.filter(p => !p.brand || p.brand === activeBrand.value);
+        });
+
         const filteredBranches = computed(() => {
-            if (!branchSearchQuery.value) return masterBranches.value;
+            if (!branchSearchQuery.value) return brandManagedBranches.value;
             const query = branchSearchQuery.value.toLowerCase();
-            return masterBranches.value.filter(b => (b.branch_name || '').toLowerCase().includes(query));
+            return brandManagedBranches.value.filter(b => (b.branch_name || '').toLowerCase().includes(query));
         });
 
         const filteredProducts = computed(() => {
-            if (!productSearchQuery.value) return masterProducts.value;
+            if (!productSearchQuery.value) return brandManagedProducts.value;
             const query = productSearchQuery.value.toLowerCase();
-            return masterProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
+            return brandManagedProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
-        // Dropdown cabang pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
-        // Master: brand yang lagi dia buka)
-        const brandBranches = computed(() => {
-            if (!activeBrand.value) return masterBranches.value;
-            return masterBranches.value.filter(b => b.brand === activeBrand.value);
-        });
+        // Dropdown cabang & item pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
+        // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
+        const brandBranches = brandManagedBranches;
+        const brandProducts = brandManagedProducts;
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
         const formatDate = (dateStr) => {
@@ -289,9 +299,14 @@ createApp({
                     alert(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
                     return;
                 }
+                // Kolom Brand OPSIONAL -- kalo gak ada, produk dianggap "shared" (keliatan di semua brand)
+                const brandCol = findCol(rows[0], 'Brand', 'brand', 'Merk', 'merk');
 
                 const payload = rows
-                    .map((row) => ({ name: String(row[nameCol] ?? '').trim() }))
+                    .map((row) => ({
+                        name: String(row[nameCol] ?? '').trim(),
+                        brand: brandCol ? (String(row[brandCol] ?? '').trim() || null) : null
+                    }))
                     .filter((r) => r.name && r.name.toLowerCase() !== 'nan');
 
                 if (payload.length === 0) {
@@ -465,7 +480,7 @@ createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, brandPRs, brandPOs, searchQuery, filterStatus,
-            masterBranches, masterProducts, brandBranches,
+            masterBranches, masterProducts, brandBranches, brandProducts,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
             formatRp, formatDate, submitPR, approvePR, rejectPR

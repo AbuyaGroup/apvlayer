@@ -175,7 +175,7 @@
                             <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
                                 <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah produk cuma lewat upload Excel</p>
-                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Product Name</b> (wajib).</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Product Name</b> (wajib), <b>Brand</b> (opsional -- kosongin kalo produk berlaku buat semua brand).</p>
                                 <input type="file" ref="productFileInput" @change="handleProductFileUpload" accept=".xlsx, .xls" style="display: none;">
                                 <button type="button" class="btn-primary w-100" @click="$refs.productFileInput.click()">
                                     <i class="bi bi-upload me-1"></i> Upload Excel
@@ -189,10 +189,10 @@
                             </div>
                             <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
-                                    <thead><tr><th>ID</th><th>Nama Produk / Barang</th></tr></thead>
+                                    <thead><tr><th>ID</th><th>Nama Produk / Barang</th><th>Brand</th></tr></thead>
                                     <tbody>
-                                        <tr v-for="p in filteredProducts" :key="p.id"><td style="color: var(--muted);">{{ p.id }}</td><td class="fw-bold">{{ p.name }}</td></tr>
-                                        <tr v-if="filteredProducts.length === 0"><td colspan="2" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
+                                        <tr v-for="p in filteredProducts" :key="p.id"><td style="color: var(--muted);">{{ p.id }}</td><td class="fw-bold">{{ p.name }}</td><td>{{ p.brand || 'Semua Brand' }}</td></tr>
+                                        <tr v-if="filteredProducts.length === 0"><td colspan="3" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -212,7 +212,7 @@
                                 <div class="col-md-6"><div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div></div>
                             </div>
                             <div class="field"><label>Nama Barang / Item</label>
-                                <select v-model="form.item" required><option value="" disabled>-- Pilih Barang --</option><option v-for="p in masterProducts" :key="p.id" :value="p.name">{{ p.name }}</option></select>
+                                <select v-model="form.item" required><option value="" disabled>-- Pilih Barang --</option><option v-for="p in brandProducts" :key="p.id" :value="p.name">{{ p.name }}</option></select>
                             </div>
                             <div class="row">
                                 <div class="col-md-4"><div class="field"><label>Jumlah (Qty)</label><input type="number" v-model.number="form.qty" min="1" required></div></div>
