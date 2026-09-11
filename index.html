@@ -207,12 +207,12 @@
                         <form @submit.prevent="submitPR">
                             <div class="row">
                                 <div class="col-md-6"><div class="field"><label>Branch Name</label>
-                                    <select v-model="form.branch_name" required><option value="" disabled>-- Pilih Cabang --</option><option v-for="b in brandBranches" :key="b.id" :value="b.branch_name">{{ b.branch_name }}</option></select>
+                                    <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --"></searchable-select>
                                 </div></div>
                                 <div class="col-md-6"><div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div></div>
                             </div>
                             <div class="field"><label>Nama Barang / Item</label>
-                                <select v-model="form.item" required><option value="" disabled>-- Pilih Barang --</option><option v-for="p in brandProducts" :key="p.id" :value="p.id">{{ p.unit ? p.name + ' (' + p.unit + ')' : p.name }}</option></select>
+                                <searchable-select v-model="form.item" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
                             </div>
                             <div class="row">
                                 <div class="col-md-4"><div class="field"><label>Jumlah (Qty)</label><input type="number" v-model.number="form.qty" min="1" required></div></div>
@@ -233,7 +233,7 @@
                     <h2 style="margin-bottom: 24px;">Purchase Request</h2>
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
-                            <select v-model="filterStatus" style="min-width: 140px; padding: 10px 14px;"><option value="">All Status</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select>
+                            <div style="min-width: 160px;"><searchable-select v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="All Status"></searchable-select></div>
                             <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Search Request..." v-model="searchQuery"></div>
                         </div>
                         <button class="btn-primary" @click="currentTab = 'buat-pr'"><i class="bi bi-plus-lg me-1"></i> Create Request</button>

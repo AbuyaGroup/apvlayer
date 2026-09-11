@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
 
 // ============================================================
 // KONFIGURASI SUPABASE -- GANTI 2 BARIS INI
@@ -46,7 +46,89 @@ function deriveBrandFromBranchName(branchName) {
 // ============================================================
 const SESSION_TIMEOUT_MINUTES = 30;
 
-createApp({
+// ============================================================
+// KOMPONEN DROPDOWN CUSTOM -- bisa di-search & scroll, ganti <select> biasa
+// dipake di semua dropdown yang isinya banyak (Cabang, Barang, Filter Status).
+// Props: modelValue (v-model), options: [{ value, label }], placeholder
+// ============================================================
+const SearchableSelect = {
+    props: {
+        modelValue: { default: '' },
+        options: { type: Array, default: () => [] },
+        placeholder: { type: String, default: '-- Pilih --' }
+    },
+    emits: ['update:modelValue'],
+    template: `
+        <div class="ss-wrap" ref="wrapEl">
+            <div class="ss-control" :class="{ open: isOpen }" tabindex="0"
+                 @click="toggleOpen" @keydown.enter.prevent="toggleOpen" @keydown.esc="closeDropdown">
+                <span :class="{ 'ss-placeholder': !selectedLabel }">{{ selectedLabel || placeholder }}</span>
+                <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+            </div>
+            <div v-if="isOpen" class="ss-panel">
+                <div class="ss-search" @click.stop>
+                    <i class="bi bi-search"></i>
+                    <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
+                </div>
+                <div class="ss-options">
+                    <div v-for="opt in filteredOptions" :key="opt.value" class="ss-option"
+                         :class="{ selected: opt.value === modelValue }" @click="selectOption(opt)">
+                        {{ opt.label }}
+                    </div>
+                    <div v-if="filteredOptions.length === 0" class="ss-empty">Gak ada yang cocok.</div>
+                </div>
+            </div>
+        </div>
+    `,
+    setup(props, { emit }) {
+        const isOpen = ref(false);
+        const searchQuery = ref('');
+        const wrapEl = ref(null);
+        const searchInput = ref(null);
+
+        const selectedLabel = computed(() => {
+            const found = props.options.find(o => o.value === props.modelValue);
+            return found ? found.label : '';
+        });
+
+        const filteredOptions = computed(() => {
+            if (!searchQuery.value) return props.options;
+            const q = searchQuery.value.toLowerCase();
+            return props.options.filter(o => String(o.label).toLowerCase().includes(q));
+        });
+
+        const closeDropdown = () => { isOpen.value = false; };
+        const toggleOpen = () => {
+            isOpen.value = !isOpen.value;
+            if (isOpen.value) {
+                searchQuery.value = '';
+                nextTick(() => searchInput.value && searchInput.value.focus());
+            }
+        };
+        const selectOption = (opt) => {
+            emit('update:modelValue', opt.value);
+            closeDropdown();
+        };
+
+        const handleClickOutside = (e) => {
+            if (wrapEl.value && !wrapEl.value.contains(e.target)) closeDropdown();
+        };
+        onMounted(() => document.addEventListener('click', handleClickOutside));
+        onUnmounted(() => document.removeEventListener('click', handleClickOutside));
+
+        return { isOpen, searchQuery, wrapEl, searchInput, selectedLabel, filteredOptions, toggleOpen, closeDropdown, selectOption };
+    }
+};
+
+// Opsi tetap buat dropdown filter status di Daftar PR
+const STATUS_OPTIONS = [
+    { value: '', label: 'All Status' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Approved', label: 'Approved' },
+    { value: 'Rejected', label: 'Rejected' }
+];
+
+const app = createApp({
     setup() {
         // STATE AUTENTIKASI
         const isLoggedIn = ref(false);
@@ -187,6 +269,13 @@ createApp({
         // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
         const brandBranches = brandManagedBranches;
         const brandProducts = brandManagedProducts;
+
+        // Opsi buat dropdown searchable (SearchableSelect) di form Buat PR
+        const branchOptions = computed(() => brandBranches.value.map(b => ({ value: b.branch_name, label: b.branch_name })));
+        const productOptions = computed(() => brandProducts.value.map(p => ({
+            value: p.id,
+            label: p.unit ? `${p.name} (${p.unit})` : p.name
+        })));
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
         const formatDate = (dateStr) => {
@@ -339,6 +428,10 @@ createApp({
         };
 
         const submitPR = async () => {
+            // Validasi manual -- dropdown Cabang & Barang sekarang komponen custom
+            // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
+            if (!form.value.branch_name) { alert('Pilih cabang dulu ya.'); return; }
+            if (!form.value.item) { alert('Pilih barang/item dulu ya.'); return; }
             try {
                 const totalPrice = (form.value.qty || 0) * (form.value.price || 0);
                 // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
@@ -491,10 +584,12 @@ createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, brandPRs, brandPOs, searchQuery, filterStatus,
-            masterBranches, masterProducts, brandBranches, brandProducts,
+            masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
             formatRp, formatDate, submitPR, approvePR, rejectPR
         };
     }
-}).mount('#app');
+})
+    .component('searchable-select', SearchableSelect)
+    .mount('#app');

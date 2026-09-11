@@ -111,6 +111,30 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .table-scroll{ max-height: 460px; overflow-y: auto; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }
 
+/* Dropdown custom (SearchableSelect) -- pengganti <select> biasa, bisa di-search & scroll */
+.ss-wrap{ position:relative; }
+.ss-control{
+    width:100%; border:1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px;
+    color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+    gap:8px; font-size:14px;
+}
+.ss-control:hover{ border-color:#c3d0e8; }
+.ss-control.open{ border-color:var(--primary); box-shadow:0 0 0 4px rgba(52,85,219,.11); background:#fff; }
+.ss-control i{ color:var(--muted); font-size:13px; flex-shrink:0; }
+.ss-placeholder{ color:#93a0b8; }
+.ss-panel{
+    position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:50; background:var(--surface-1);
+    border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); overflow:hidden;
+}
+.ss-search{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.ss-search i{ color:var(--primary); font-size:14px; }
+.ss-search input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight:500; }
+.ss-options{ max-height:230px; overflow-y:auto; }
+.ss-option{ padding:10px 14px; font-size:13.5px; cursor:pointer; color:var(--ink); }
+.ss-option:hover{ background:var(--primary-soft); color:var(--primary); }
+.ss-option.selected{ background:var(--primary-soft); color:var(--primary); font-weight:600; }
+.ss-empty{ padding:16px; text-align:center; color:var(--muted); font-size:12.5px; }
+
 /* Kartu pilihan Brand di layar sebelum login */
 .brand-choice{
     display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border);
