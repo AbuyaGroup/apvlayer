@@ -299,12 +299,16 @@ createApp({
                     alert(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
                     return;
                 }
-                // Kolom Brand OPSIONAL -- kalo gak ada, produk dianggap "shared" (keliatan di semua brand)
+                // Kolom Brand & Unit OPSIONAL -- Brand kosong = shared (keliatan di semua brand).
+                // Unit kosong dianggap NULL (produk sama boleh punya beberapa baris beda unit,
+                // misal "Air Mineral 220ml" ada yang Carton ada yang pcs).
                 const brandCol = findCol(rows[0], 'Brand', 'brand', 'Merk', 'merk');
+                const unitCol = findCol(rows[0], 'Unit', 'unit', 'Satuan', 'satuan');
 
                 const payload = rows
                     .map((row) => ({
                         name: String(row[nameCol] ?? '').trim(),
+                        unit: unitCol ? (String(row[unitCol] ?? '').trim() || null) : null,
                         brand: brandCol ? (String(row[brandCol] ?? '').trim() || null) : null
                     }))
                     .filter((r) => r.name && r.name.toLowerCase() !== 'nan');
@@ -316,7 +320,7 @@ createApp({
 
                 const { error } = await supabaseClient
                     .from('master_products')
-                    .upsert(payload, { onConflict: 'name', ignoreDuplicates: true });
+                    .upsert(payload, { onConflict: 'name,unit', ignoreDuplicates: true });
 
                 if (error) {
                     alert('Gagal upload: ' + error.message);
@@ -342,10 +346,17 @@ createApp({
                 const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
                 const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
 
+                // form.item sekarang nyimpen ID produk (bukan nama), soalnya nama produk bisa
+                // dobel kalo unit-nya beda (misal "Air Mineral 220ml" Carton vs pcs)
+                const matchedProduct = masterProducts.value.find(p => p.id === form.value.item);
+                const itemName = matchedProduct
+                    ? (matchedProduct.unit ? `${matchedProduct.name} (${matchedProduct.unit})` : matchedProduct.name)
+                    : form.value.item;
+
                 const { error } = await supabaseClient.from('purchase_requests').insert({
                     pr_number: generateNumber('PR'),
                     branch_name: form.value.branch_name,
-                    item_name: form.value.item,
+                    item_name: itemName,
                     qty: form.value.qty,
                     price: form.value.price,
                     total_price: totalPrice,
