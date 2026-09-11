@@ -16,7 +16,10 @@ button:focus-visible, input:focus-visible, select:focus-visible{ outline:3px sol
 h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5px; }
 
 /* Form & Buttons */
-.field{ margin-bottom:18px; position:relative; z-index:1; }
+/* z-index dihapus dari sini (dulu ada .field{z-index:1}) -- itu bikin tiap .field jadi
+   "kotak" stacking context sendiri, jadi panel dropdown searchable-select yang meluber ke luar
+   .field-nya malah ketimpa sama .field lain yang urutannya lebih belakang di DOM. */
+.field{ margin-bottom:18px; position:relative; }
 .field label{ color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display: block; font-weight: 600;}
 .field input, .field select, .field textarea, select{
     width: 100%; border: 1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px; color:var(--ink);

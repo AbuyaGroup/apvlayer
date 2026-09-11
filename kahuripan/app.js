@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
 // ============================================================
 // KONFIGURASI SUPABASE -- GANTI 2 BARIS INI
@@ -204,6 +204,21 @@ const app = createApp({
         };
 
         const currentTab = ref('dashboard');
+        // Simpen tab yang lagi dibuka biar refresh halaman gak balik ke Dashboard lagi
+        watch(currentTab, (val) => {
+            try { localStorage.setItem('lastActiveTab', val); } catch (e) {}
+        });
+        // Balikin tab terakhir, tapi tolak tab Master Data kalo role-nya bukan Master
+        // (jaga-jaga di browser bareng: akun Master abis buka Master Data, logout,
+        // akun AM login di browser yang sama -- jangan sampe ke-lempar ke tab itu)
+        const restoreLastTab = (role) => {
+            try {
+                const saved = localStorage.getItem('lastActiveTab');
+                if (saved && (!saved.startsWith('master') || role === 'Master')) {
+                    currentTab.value = saved;
+                }
+            } catch (e) {}
+        };
         const prs = ref([]);
         const pos = ref([]);
         const masterBranches = ref([]);
@@ -347,6 +362,7 @@ const app = createApp({
             manualSignOut = false;
             clearSessionState();
             sessionExpiredMessage.value = '';
+            try { localStorage.removeItem('lastActiveTab'); } catch (e) {}
         };
 
         const fetchData = async () => {
@@ -575,6 +591,7 @@ const app = createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
+                restoreLastTab(role); // <-- ini yang bikin tetep stay di tab yang sama pas refresh
                 startIdleWatcher();
                 fetchData();
             }
