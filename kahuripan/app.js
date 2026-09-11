@@ -230,6 +230,16 @@ const app = createApp({
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
 
+        // STATE EDIT & BULK SELECT -- Master Branch
+        const editingBranchId = ref(null);
+        const editBranchForm = ref({ branch_name: '', branch_code: '', brand: '' });
+        const selectedBranchIds = ref([]);
+
+        // STATE EDIT & BULK SELECT -- Master Product
+        const editingProductId = ref(null);
+        const editProductForm = ref({ name: '', unit: '', brand: '' });
+        const selectedProductIds = ref([]);
+
         // Brand yang lagi "aktif" di workspace ini: AM selalu kekunci ke brand-nya sendiri,
         // Master ngikut brand yang dia pilih di layar login (biar pas masuk salah satu "kamar"
         // brand, data brand yang satunya gak ikut ketarik).
@@ -279,6 +289,14 @@ const app = createApp({
             const query = productSearchQuery.value.toLowerCase();
             return brandManagedProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
+
+        // "Select all" nyala kalo semua baris yang lagi keliatan (hasil search) udah dipilih
+        const allBranchesSelected = computed(() =>
+            filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
+        );
+        const allProductsSelected = computed(() =>
+            filteredProducts.value.length > 0 && selectedProductIds.value.length === filteredProducts.value.length
+        );
 
         // Dropdown cabang & item pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
         // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
@@ -574,6 +592,98 @@ const app = createApp({
             }
         };
 
+        // ============================================================
+        // EDIT & HAPUS -- MASTER BRANCH (Master only, dicek juga sama RLS di DB)
+        // ============================================================
+        const toggleBranchSelect = (id) => {
+            const idx = selectedBranchIds.value.indexOf(id);
+            if (idx === -1) selectedBranchIds.value.push(id);
+            else selectedBranchIds.value.splice(idx, 1);
+        };
+        const toggleSelectAllBranches = () => {
+            selectedBranchIds.value = allBranchesSelected.value ? [] : filteredBranches.value.map(b => b.id);
+        };
+        const startEditBranch = (b) => {
+            editingProductId.value = null; // tutup edit produk kalo lagi kebuka
+            editingBranchId.value = b.id;
+            editBranchForm.value = { branch_name: b.branch_name, branch_code: b.branch_code || '', brand: b.brand || '' };
+        };
+        const cancelEditBranch = () => { editingBranchId.value = null; };
+        const saveEditBranch = async (id) => {
+            if (!editBranchForm.value.branch_name.trim()) { alert('Nama cabang gak boleh kosong.'); return; }
+            const { error } = await supabaseClient
+                .from('master_branches')
+                .update({
+                    branch_name: editBranchForm.value.branch_name.trim(),
+                    branch_code: editBranchForm.value.branch_code.trim(),
+                    brand: editBranchForm.value.brand || null
+                })
+                .eq('id', id);
+            if (error) {
+                alert('Gagal simpan: ' + error.message);
+                return;
+            }
+            editingBranchId.value = null;
+            fetchData();
+        };
+        const deleteBranches = async (ids) => {
+            if (ids.length === 0) return;
+            if (!confirm(`Yakin mau hapus ${ids.length} cabang ini? Gak bisa di-undo.`)) return;
+            const { error } = await supabaseClient.from('master_branches').delete().in('id', ids);
+            if (error) {
+                alert('Gagal hapus: ' + error.message);
+                return;
+            }
+            selectedBranchIds.value = selectedBranchIds.value.filter(id => !ids.includes(id));
+            fetchData();
+        };
+
+        // ============================================================
+        // EDIT & HAPUS -- MASTER PRODUCT (Master only, dicek juga sama RLS di DB)
+        // ============================================================
+        const toggleProductSelect = (id) => {
+            const idx = selectedProductIds.value.indexOf(id);
+            if (idx === -1) selectedProductIds.value.push(id);
+            else selectedProductIds.value.splice(idx, 1);
+        };
+        const toggleSelectAllProducts = () => {
+            selectedProductIds.value = allProductsSelected.value ? [] : filteredProducts.value.map(p => p.id);
+        };
+        const startEditProduct = (p) => {
+            editingBranchId.value = null; // tutup edit cabang kalo lagi kebuka
+            editingProductId.value = p.id;
+            editProductForm.value = { name: p.name, unit: p.unit || '', brand: p.brand || '' };
+        };
+        const cancelEditProduct = () => { editingProductId.value = null; };
+        const saveEditProduct = async (id) => {
+            if (!editProductForm.value.name.trim()) { alert('Nama produk gak boleh kosong.'); return; }
+            const { error } = await supabaseClient
+                .from('master_products')
+                .update({
+                    name: editProductForm.value.name.trim(),
+                    unit: editProductForm.value.unit.trim() || null,
+                    brand: editProductForm.value.brand || null
+                })
+                .eq('id', id);
+            if (error) {
+                alert('Gagal simpan: ' + error.message);
+                return;
+            }
+            editingProductId.value = null;
+            fetchData();
+        };
+        const deleteProducts = async (ids) => {
+            if (ids.length === 0) return;
+            if (!confirm(`Yakin mau hapus ${ids.length} produk ini? Gak bisa di-undo.`)) return;
+            const { error } = await supabaseClient.from('master_products').delete().in('id', ids);
+            if (error) {
+                alert('Gagal hapus: ' + error.message);
+                return;
+            }
+            selectedProductIds.value = selectedProductIds.value.filter(id => !ids.includes(id));
+            fetchData();
+        };
+
         // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
         // (brand mismatch gak perlu dicek ulang di sini karena session ini emang udah lolos validasi pas login pertama)
         onMounted(async () => {
@@ -604,6 +714,10 @@ const app = createApp({
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
+            editingBranchId, editBranchForm, selectedBranchIds, allBranchesSelected,
+            toggleBranchSelect, toggleSelectAllBranches, startEditBranch, cancelEditBranch, saveEditBranch, deleteBranches,
+            editingProductId, editProductForm, selectedProductIds, allProductsSelected,
+            toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
             formatRp, formatDate, submitPR, approvePR, rejectPR
         };
     }

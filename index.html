@@ -153,12 +153,53 @@
                                 <i class="bi bi-search"></i>
                                 <input type="text" placeholder="Cari nama cabang..." v-model="branchSearchQuery">
                             </div>
+                            <div v-if="selectedBranchIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedBranchIds.length }} cabang dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedBranchIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deleteBranches(selectedBranchIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
                             <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
-                                    <thead><tr><th>ID</th><th>Nama Cabang</th><th>Kode</th><th>Brand</th></tr></thead>
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allBranchesSelected" @change="toggleSelectAllBranches"></th>
+                                        <th>ID</th><th>Nama Cabang</th><th>Kode</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
                                     <tbody>
-                                        <tr v-for="b in filteredBranches" :key="b.id"><td style="color: var(--muted);">{{ b.id }}</td><td class="fw-bold">{{ b.branch_name }}</td><td>{{ b.branch_code }}</td><td>{{ b.brand || '-' }}</td></tr>
-                                        <tr v-if="filteredBranches.length === 0"><td colspan="4" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
+                                        <template v-for="b in filteredBranches" :key="b.id">
+                                            <!-- MODE EDIT -->
+                                            <tr v-if="editingBranchId === b.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ b.id }}</td>
+                                                <td><input type="text" v-model="editBranchForm.branch_name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td><input type="text" v-model="editBranchForm.branch_code" style="padding:6px 8px; font-size:13px; width:90px;"></td>
+                                                <td>
+                                                    <select v-model="editBranchForm.brand" style="padding:6px 8px; font-size:13px;">
+                                                        <option value="">Semua Brand</option>
+                                                        <option value="Kebuli Abuya">Kebuli Abuya</option>
+                                                        <option value="Almaz Fried Chicken">Almaz Fried Chicken</option>
+                                                    </select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditBranch(b.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditBranch" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+                                            <!-- MODE VIEW -->
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedBranchIds.includes(b.id)" @change="toggleBranchSelect(b.id)"></td>
+                                                <td style="color: var(--muted);">{{ b.id }}</td>
+                                                <td class="fw-bold">{{ b.branch_name }}</td>
+                                                <td>{{ b.branch_code }}</td>
+                                                <td>{{ b.brand || '-' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditBranch(b)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteBranches([b.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredBranches.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -187,12 +228,53 @@
                                 <i class="bi bi-search"></i>
                                 <input type="text" placeholder="Cari nama produk..." v-model="productSearchQuery">
                             </div>
+                            <div v-if="selectedProductIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedProductIds.length }} produk dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedProductIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deleteProducts(selectedProductIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
                             <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
-                                    <thead><tr><th>ID</th><th>Nama Produk / Barang</th><th>Unit</th><th>Brand</th></tr></thead>
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allProductsSelected" @change="toggleSelectAllProducts"></th>
+                                        <th>ID</th><th>Nama Produk / Barang</th><th>Unit</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
                                     <tbody>
-                                        <tr v-for="p in filteredProducts" :key="p.id"><td style="color: var(--muted);">{{ p.id }}</td><td class="fw-bold">{{ p.name }}</td><td>{{ p.unit || '-' }}</td><td>{{ p.brand || 'Semua Brand' }}</td></tr>
-                                        <tr v-if="filteredProducts.length === 0"><td colspan="4" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
+                                        <template v-for="p in filteredProducts" :key="p.id">
+                                            <!-- MODE EDIT -->
+                                            <tr v-if="editingProductId === p.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td><input type="text" v-model="editProductForm.name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td><input type="text" v-model="editProductForm.unit" style="padding:6px 8px; font-size:13px; width:90px;"></td>
+                                                <td>
+                                                    <select v-model="editProductForm.brand" style="padding:6px 8px; font-size:13px;">
+                                                        <option value="">Semua Brand</option>
+                                                        <option value="Kebuli Abuya">Kebuli Abuya</option>
+                                                        <option value="Almaz Fried Chicken">Almaz Fried Chicken</option>
+                                                    </select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditProduct(p.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditProduct" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+                                            <!-- MODE VIEW -->
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedProductIds.includes(p.id)" @change="toggleProductSelect(p.id)"></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td class="fw-bold">{{ p.name }}</td>
+                                                <td>{{ p.unit || '-' }}</td>
+                                                <td>{{ p.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditProduct(p)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteProducts([p.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredProducts.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
