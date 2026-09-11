@@ -49,6 +49,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .login-brand span{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; letter-spacing: -0.5px;}
 .login-card p.sub{ color:var(--muted); font-size:13.5px; margin:0 0 26px; }
 .login-error{ background:var(--danger-soft); color:var(--danger); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
+.login-notice{ background:var(--warn-soft); color:var(--warn); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 
 /* Main App Layout */
 .d-flex-layout { display: flex; min-height: 100vh; }
@@ -88,7 +89,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px;
     padding:16px 20px; border:1px solid var(--border); border-radius:18px; background:rgba(255,255,255,.84); box-shadow:0 5px 18px rgba(32,50,103,.04);
 }
-.search-box{ min-width:250px; padding:10px 14px; border-radius:11px; background:#fbfbfb; display: flex; align-items: center; gap: 8px; }
+.search-box{ min-width:250px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
 .search-box i{ color:var(--primary); font-size: 16px;}
 .search-box input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight: 500;}
 

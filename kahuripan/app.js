@@ -40,6 +40,12 @@ function deriveBrandFromBranchName(branchName) {
     return null;
 }
 
+// ============================================================
+// SESSION EXPIRATION -- otomatis logout kalo user gak ada aktivitas
+// sekian lama. Ganti angka ini kalo mau lebih pendek/panjang.
+// ============================================================
+const SESSION_TIMEOUT_MINUTES = 30;
+
 createApp({
     setup() {
         // STATE AUTENTIKASI
@@ -48,7 +54,61 @@ createApp({
         const userRole = ref('');
         const loginForm = ref({ email: '', password: '' });
         const loginError = ref('');
+        const sessionExpiredMessage = ref(''); // pesan pas sesi abis (beda dari salah password)
         const isLoading = ref(false);
+
+        // Dipake buat bedain signOut() yang emang kita sengaja panggil (logout manual/idle)
+        // vs signOut yang kejadian sendiri di luar kontrol kita (token invalid, dsb).
+        let manualSignOut = false;
+        let idleTimer = null;
+        let lastActivityAt = Date.now();
+        const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+
+        const resetIdleTimer = () => { lastActivityAt = Date.now(); };
+
+        const startIdleWatcher = () => {
+            lastActivityAt = Date.now();
+            IDLE_EVENTS.forEach(evt => window.addEventListener(evt, resetIdleTimer, { passive: true }));
+            idleTimer = setInterval(() => {
+                const idleMinutes = (Date.now() - lastActivityAt) / 60000;
+                if (idleMinutes >= SESSION_TIMEOUT_MINUTES) expireSessionDueToIdle();
+            }, 30000); // cek tiap 30 detik
+        };
+
+        const stopIdleWatcher = () => {
+            IDLE_EVENTS.forEach(evt => window.removeEventListener(evt, resetIdleTimer));
+            if (idleTimer) clearInterval(idleTimer);
+            idleTimer = null;
+        };
+
+        // Bersihin semua state login (dipake bareng sama expiry maupun logout manual)
+        const clearSessionState = () => {
+            isLoggedIn.value = false;
+            userEmail.value = '';
+            userRole.value = '';
+            userBrand.value = null;
+            loginForm.value = { email: '', password: '' };
+            currentTab.value = 'dashboard';
+        };
+
+        const expireSessionDueToIdle = async () => {
+            stopIdleWatcher();
+            manualSignOut = true;
+            await supabaseClient.auth.signOut();
+            manualSignOut = false;
+            clearSessionState();
+            sessionExpiredMessage.value = `Sesi lo abis karena kelamaan gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
+        };
+
+        // Jaring pengaman: kalo Supabase sendiri yang ngeluarin sesi (token expired/invalid,
+        // atau logout dari tab/perangkat lain) di luar signOut() yang kita panggil sendiri
+        supabaseClient.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT' && !manualSignOut && isLoggedIn.value) {
+                stopIdleWatcher();
+                clearSessionState();
+                sessionExpiredMessage.value = 'Sesi login lo udah gak valid lagi. Login lagi ya.';
+            }
+        });
 
         // STATE BRAND -- selectedBrand = brand yang dipilih di layar sebelum login
         // userBrand = brand ASLI yang nempel di akun (dari user_roles), null = Master (bebas semua brand)
@@ -57,6 +117,7 @@ createApp({
         const backToBrandPicker = () => {
             selectedBrand.value = '';
             loginError.value = '';
+            sessionExpiredMessage.value = '';
             try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
         };
 
@@ -137,6 +198,7 @@ createApp({
         const handleLogin = async () => {
             isLoading.value = true;
             loginError.value = '';
+            sessionExpiredMessage.value = '';
             try {
                 const usernameInput = loginForm.value.email || '';
                 const fullEmail = usernameInput.includes('@') ? usernameInput : `${usernameInput}@abuyagroup.com`;
@@ -155,7 +217,9 @@ createApp({
 
                 // Kalo akun ini kekunci ke brand tertentu (bukan Master) dan beda sama brand yang dipilih -> tolak
                 if (brand && brand !== selectedBrand.value) {
+                    manualSignOut = true;
                     await supabaseClient.auth.signOut();
+                    manualSignOut = false;
                     loginError.value = `Akun ini gak punya akses ke brand "${selectedBrand.value}".`;
                     return;
                 }
@@ -167,6 +231,7 @@ createApp({
                 // Simpen brand yang lagi dibuka biar kalo halaman di-refresh, Master gak
                 // balik ngeliat semua brand lagi (workspace tetep ke-scope ke brand ini)
                 try { localStorage.setItem('activeBrandChoice', selectedBrand.value); } catch (e) {}
+                startIdleWatcher();
                 await fetchData();
             } catch (err) {
                 console.error('Error login:', err);
@@ -177,13 +242,12 @@ createApp({
         };
 
         const handleLogout = async () => {
+            stopIdleWatcher();
+            manualSignOut = true;
             await supabaseClient.auth.signOut();
-            isLoggedIn.value = false;
-            userEmail.value = '';
-            userRole.value = '';
-            userBrand.value = null;
-            loginForm.value = { email: '', password: '' };
-            currentTab.value = 'dashboard';
+            manualSignOut = false;
+            clearSessionState();
+            sessionExpiredMessage.value = '';
         };
 
         const fetchData = async () => {
@@ -392,12 +456,13 @@ createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
+                startIdleWatcher();
                 fetchData();
             }
         });
 
         return {
-            isLoggedIn, userEmail, userRole, loginForm, loginError, isLoading, handleLogin, handleLogout,
+            isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, form, pendingPRs, filteredPRs, brandPRs, brandPOs, searchQuery, filterStatus,
             masterBranches, masterProducts, brandBranches,

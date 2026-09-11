@@ -62,6 +62,7 @@
                     <span>ABUYA GROUP</span>
                 </div>
                 <p class="sub">Login sebagai <b>{{ selectedBrand }}</b></p>
+                <div v-if="sessionExpiredMessage" class="login-notice">{{ sessionExpiredMessage }}</div>
                 <form @submit.prevent="handleLogin">
                     <div class="field">
                         <label>Username</label>
