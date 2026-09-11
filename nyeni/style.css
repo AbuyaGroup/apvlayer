@@ -131,7 +131,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 }
 .ss-search{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); }
 .ss-search i{ color:var(--primary); font-size:14px; }
-.ss-search input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight:500; }
+.ss-search input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight:500; padding:0; border-radius:0; height:auto; margin:0; }
 .ss-options{ max-height:230px; overflow-y:auto; }
 .ss-option{ padding:10px 14px; font-size:13.5px; cursor:pointer; color:var(--ink); }
 .ss-option:hover{ background:var(--primary-soft); color:var(--primary); }
