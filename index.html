@@ -285,22 +285,37 @@
                 <!-- TAB: BUAT PR -->
                 <div v-else-if="currentTab === 'buat-pr'" key="buat-pr">
                     <h2 style="margin-bottom: 24px;">Create Purchase Request</h2>
-                    <div class="produk-table-wrap" style="padding: 30px; max-width: 900px; background: var(--surface-1); overflow: visible;">
+                    <div class="pr-form-card">
                         <form @submit.prevent="submitPR">
-                            <div class="row">
-                                <div class="col-md-6"><div class="field"><label>Branch Name</label>
+                            <div class="pr-form-grid">
+                                <div class="field"><label>Branch Name</label>
                                     <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --"></searchable-select>
-                                </div></div>
-                                <div class="col-md-6"><div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div></div>
+                                </div>
+                                <div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div>
+                                <div class="field"><label>Kategori Pengiriman</label>
+                                    <searchable-select v-model="form.shipping_category" :options="SHIPPING_CATEGORY_OPTIONS" placeholder="-- Pilih Kategori --"></searchable-select>
+                                </div>
                             </div>
-                            <div class="field"><label>Nama Barang / Item</label>
-                                <searchable-select v-model="form.item" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+
+                            <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Nama Barang / Item &amp; Jumlah</label>
+                            <div class="pr-item-adder">
+                                <div class="field" style="margin-bottom:0;">
+                                    <searchable-select v-model="newItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                                </div>
+                                <div class="field qty-field" style="margin-bottom:0;">
+                                    <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
+                                </div>
+                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i> Tambah</button>
                             </div>
-                            <div class="row">
-                                <div class="col-md-4"><div class="field"><label>Jumlah (Qty)</label><input type="number" v-model.number="form.qty" min="1" required></div></div>
-                                <div class="col-md-4"><div class="field"><label>Harga Satuan (Rp)</label><input type="number" v-model.number="form.price" min="1" required></div></div>
-                                <div class="col-md-4"><div class="field"><label>Total Estimasi (Rp)</label><input type="text" :value="formatRp(form.qty * form.price)" readonly style="background: var(--surface-0);"></div></div>
+
+                            <div class="pr-item-list">
+                                <div v-if="form.items.length === 0" class="pr-item-empty">Belum ada item ditambahkan.</div>
+                                <div v-for="(it, idx) in form.items" :key="it.product_id" class="pr-item-row">
+                                    <div><span class="item-name">{{ it.item_name }}</span><span class="item-qty">x{{ it.qty }}</span></div>
+                                    <button type="button" class="btn-icon danger" @click="removeFormItem(idx)" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                </div>
                             </div>
+
                             <div class="field"><label>Notes</label><textarea v-model="form.notes" rows="3"></textarea></div>
                             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
                                 <button type="button" class="btn-ghost" @click="currentTab = 'daftar-pr'">Cancel</button>
@@ -322,24 +337,71 @@
                     </div>
                     <div class="produk-table-wrap">
                         <table class="produk-table">
-                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Req. Date</th><th>Required Date</th><th>Notes</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
+                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>Items</th><th>Req. Date</th><th>Required Date</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
                             <tbody>
                                 <tr v-for="pr in filteredPRs" :key="pr.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ pr.pr_number }}</td>
-                                    <td>{{ pr.branch_name }}</td><td>{{ formatDate(pr.created_at) }}</td><td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
-                                    <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="pr.notes">{{ pr.notes || '-' }}</td>
+                                    <td>{{ pr.branch_name }}</td>
+                                    <td>{{ pr.shipping_category || '-' }}</td>
+                                    <td>{{ (itemsByPrId[pr.id] || []).length }} item</td>
+                                    <td>{{ formatDate(pr.created_at) }}</td><td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
                                     <td><span class="status-badge" :class="pr.status.toLowerCase()">{{ pr.status }}</span></td>
-                                    <td style="text-align: right; display: flex; gap: 6px; justify-content: flex-end;">
-                                        <div v-if="pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')" style="display: flex; gap: 6px;">
-                                            <button @click="approvePR(pr.id)" class="btn-icon success"><i class="bi bi-check-lg"></i></button>
-                                            <button @click="rejectPR(pr.id)" class="btn-icon danger"><i class="bi bi-x-lg"></i></button>
-                                        </div>
-                                        <span v-else-if="pr.status !== 'Pending'" style="font-size: 12px; color: var(--muted); font-weight: 600;"><i class="bi bi-check2-all"></i> Reviewed</span>
-                                        <span v-else style="font-size: 12px; color: var(--warn); font-weight: 600;">Waiting...</span>
+                                    <td style="text-align: right;">
+                                        <button @click="openEditPR(pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;">
+                                            <i :class="(userRole === 'AM' || userRole === 'Master') ? 'bi bi-pencil' : 'bi bi-eye'"></i>
+                                            {{ (userRole === 'AM' || userRole === 'Master') ? 'Edit' : 'Detail' }}
+                                        </button>
                                     </td>
                                 </tr>
+                                <tr v-if="filteredPRs.length === 0"><td colspan="8" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Request.</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- TAB: DETAIL / EDIT PR (AM/Master review item yang direquest SM) -->
+                <div v-else-if="currentTab === 'edit-pr' && editingPR" key="edit-pr">
+                    <button class="btn-ghost mb-4" @click="backFromEditPR" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 4px;">Detail Purchase Request</h2>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px; font-family: 'IBM Plex Mono', monospace;">{{ editingPR.pr_number }}</p>
+
+                    <div class="pr-form-card">
+                        <div class="pr-detail-grid">
+                            <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
+                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
+                            <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
+                            <div style="grid-column: 1 / -1;"><div class="pr-detail-label">Notes</div><div class="pr-detail-value" style="font-weight:500;">{{ editingPR.notes || '-' }}</div></div>
+                        </div>
+
+                        <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Item Barang</label>
+
+                        <div v-if="canEditPR" class="pr-item-adder">
+                            <div class="field" style="margin-bottom:0;">
+                                <searchable-select v-model="editPRNewItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                            </div>
+                            <div class="field qty-field" style="margin-bottom:0;">
+                                <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
+                            </div>
+                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i> Tambah</button>
+                        </div>
+
+                        <div class="pr-item-list">
+                            <div v-if="editPRItems.length === 0" class="pr-item-empty">Belum ada item.</div>
+                            <div v-for="it in editPRItems" :key="it.id" class="pr-item-row">
+                                <span class="item-name">{{ it.item_name }}</span>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <input v-if="canEditPR" type="number" min="1" v-model.number="it.qty" @change="updateEditingPRItemQty(it)" style="width:80px; padding:6px 8px; font-size:13px;">
+                                    <span v-else class="item-qty">x{{ it.qty }}</span>
+                                    <button v-if="canEditPR" type="button" class="btn-icon danger" @click="removeItemFromEditingPR(it.id)" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="canEditPR" style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
+                            <button type="button" class="btn-danger-solid" @click="rejectPR(editingPR.id)"><i class="bi bi-x-lg me-1"></i> Reject</button>
+                            <button type="button" class="btn-primary" @click="approvePR(editingPR.id)"><i class="bi bi-check-lg me-1"></i> Approve</button>
+                        </div>
                     </div>
                 </div>
 
@@ -348,22 +410,28 @@
                     <h2 style="margin-bottom: 24px;">Purchase Order</h2>
                     <div class="produk-table-wrap">
                         <table class="produk-table">
-                            <thead><tr><th>PO Number</th><th>PR Reference</th><th>Release Date</th><th>Item Processed</th><th>Total (Rp)</th></tr></thead>
+                            <thead><tr><th>PO Number</th><th>PR Reference</th><th>Branch Name</th><th>Shipping</th><th>Release Date</th><th>Items</th></tr></thead>
                             <tbody>
                                 <tr v-for="po in brandPOs" :key="po.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ po.po_number }}</td>
                                     <td><span style="background: var(--surface-0); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">{{ po.purchase_requests?.pr_number || '-' }}</span></td>
+                                    <td>{{ po.purchase_requests?.branch_name || '-' }}</td>
+                                    <td>{{ po.purchase_requests?.shipping_category || '-' }}</td>
                                     <td>{{ formatDate(po.created_at) }}</td>
-                                    <td>{{ po.purchase_requests?.item_name || 'Terhapus' }} <span style="color: var(--muted); font-size: 12px;">(x{{ po.purchase_requests?.qty || 0 }})</span></td>
-                                    <td style="font-weight: 600;">{{ formatRp(po.purchase_requests?.total_price || 0) }}</td>
+                                    <td>
+                                        <span v-if="!(itemsByPrId[po.pr_id] || []).length" style="color: var(--muted);">Terhapus</span>
+                                        <span v-for="(it, i) in (itemsByPrId[po.pr_id] || [])" :key="it.id">{{ it.item_name }} (x{{ it.qty }})<span v-if="i < (itemsByPrId[po.pr_id] || []).length - 1">, </span></span>
+                                    </td>
                                 </tr>
+                                <tr v-if="brandPOs.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- TAB: DASHBOARD -->
-                <div v-else-if="currentTab === 'dashboard'" key="dashboard">
+                <!-- TAB: DASHBOARD (juga jadi fallback default kalo currentTab lagi gak cocok sama tab manapun,
+                     misal 'edit-pr' abis di-refresh tapi editingPR-nya udah null) -->
+                <div v-else key="dashboard">
                     <h2 style="margin-bottom: 24px;">Dashboard Overview</h2>
                     <div class="dc-grid">
                         <div class="dc-card"><div class="dc-icon" style="background:linear-gradient(135deg, #4569ee, #263fb8); box-shadow:0 12px 22px rgba(52,85,219,.25);"><i class="bi bi-file-earmark-plus" style="color: white;"></i></div><h3 class="name">Total Request</h3><div class="qty">{{ brandPRs.length }}</div></div>
