@@ -24,7 +24,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .field input, .field select, .field textarea, select{
     width: 100%; border: 1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px; color:var(--ink);
 }
-.field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 4px rgba(52,85,219,.11); background:#fff; }
+.field input:focus, .field select:focus, .field textarea:focus{ background:#fff; }
 .btn-primary{
     position:relative; z-index:1; overflow:hidden; padding:11px 20px; border-radius:11px; letter-spacing:.01em; font-weight: 600; color: white; border: none; cursor: pointer;
     background:linear-gradient(135deg, #3d61e9, #2945c9); box-shadow:0 10px 19px rgba(52,85,219,.25);
