@@ -104,9 +104,23 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px;
     padding:16px 20px; border:1px solid var(--border); border-radius:18px; background:rgba(255,255,255,.84); box-shadow:0 5px 18px rgba(32,50,103,.04);
 }
-.search-box{ min-width:250px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
+/* Grup dropdown filter + search box di sisi kiri toolbar -- ini kepake di HTML tapi
+   kemarin belom ke-define di CSS sama sekali, jadinya numpuk vertikal bukan sejajar */
+.produk-toolbar-search{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1 1 auto; }
+.search-box{ min-width:220px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
 .search-box i{ color:var(--primary); font-size: 16px;}
 .search-box input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight: 500;}
+
+/* Filter range tanggal (dipake di toolbar Daftar PR & Daftar PO, biasanya ditaro di pojok kanan) */
+.date-range-filter{
+    display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:11px;
+    background:#eef2f9; font-size:13px; font-weight:500; color:var(--muted); white-space:nowrap;
+}
+.date-range-filter i{ color:var(--primary); font-size:14px; flex-shrink:0; }
+.date-range-filter input[type="date"]{
+    border:none; outline:none; background:transparent; font-size:13px; padding:0; width:118px; color:var(--ink); font-weight:600;
+}
+.date-range-filter span{ color:var(--muted); }
 
 .produk-table-wrap{ background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius); overflow-x:auto; box-shadow: var(--shadow); }
 .produk-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
@@ -158,10 +172,13 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
    ============================================================ */
 .pr-form-card{
     background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius);
-    box-shadow:var(--shadow); padding:30px; max-width:900px; overflow:visible;
+    box-shadow:var(--shadow); padding:30px; overflow:visible;
+    /* Dulu max-width:900px -- di layar lebar itu nyisain ruang kosong gede di kanan,
+       keliatan kayak card-nya "kepotong separuh". Sekarang ngikutin lebar konten aja,
+       sama kayak .produk-table-wrap yang lain. */
 }
 .pr-form-grid{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:4px 20px;
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 340px)); gap:4px 24px;
 }
 .pr-item-adder{ display:flex; gap:12px; align-items:center; margin-bottom:16px; }
 .pr-item-adder .field{ flex:1 1 auto; }
@@ -174,7 +191,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-item-row .item-qty{ color:var(--muted); font-size:12.5px; margin-left:8px; font-weight:600; }
 .pr-item-empty{ padding:22px; text-align:center; color:var(--muted); font-size:13px; }
 .pr-detail-grid{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px 24px;
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 300px)); gap:16px 24px;
     margin-bottom:24px; padding-bottom:22px; border-bottom:1px solid var(--border);
 }
 .pr-detail-label{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:700; margin-bottom:5px; }
