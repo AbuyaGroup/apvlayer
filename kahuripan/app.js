@@ -120,6 +120,63 @@ const SearchableSelect = {
     }
 };
 
+// ============================================================
+// KOMPONEN DATE RANGE PICKER -- kalender beneran (dari-sampe) pake library
+// flatpickr (di-load di index.html). Ganti 2 kotak <input type=date> yang lama.
+// v-model isinya object { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } (kosong kalo belum dipilih).
+// ============================================================
+const DateRangeFilter = {
+    props: {
+        modelValue: { type: Object, default: () => ({ from: '', to: '' }) },
+        placeholder: { type: String, default: 'Pilih tanggal...' }
+    },
+    emits: ['update:modelValue'],
+    template: `
+        <div class="date-range-filter">
+            <i class="bi bi-calendar3"></i>
+            <input type="text" ref="inputEl" :placeholder="placeholder" readonly>
+            <button v-if="modelValue.from || modelValue.to" type="button" class="drf-clear" @click="clearRange" title="Hapus filter tanggal">
+                <i class="bi bi-x-circle-fill"></i>
+            </button>
+        </div>
+    `,
+    setup(props, { emit }) {
+        const inputEl = ref(null);
+        let fp = null;
+
+        const toISO = (d) => {
+            if (!d) return '';
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        onMounted(() => {
+            fp = flatpickr(inputEl.value, {
+                mode: 'range',
+                dateFormat: 'd-m-Y',
+                showMonths: 1, // 1 bulan aja -- 2 bulan kegedean di layar kecil
+                onChange: (selectedDates) => {
+                    if (selectedDates.length === 2) {
+                        emit('update:modelValue', { from: toISO(selectedDates[0]), to: toISO(selectedDates[1]) });
+                    } else if (selectedDates.length === 0) {
+                        emit('update:modelValue', { from: '', to: '' });
+                    }
+                }
+            });
+        });
+        onUnmounted(() => { if (fp) fp.destroy(); });
+
+        const clearRange = () => {
+            if (fp) fp.clear();
+            emit('update:modelValue', { from: '', to: '' });
+        };
+
+        return { inputEl, clearRange };
+    }
+};
+
 // Opsi tetap buat dropdown filter status di Daftar PR
 const STATUS_OPTIONS = [
     { value: '', label: 'All Status' },
@@ -134,8 +191,22 @@ const SHIPPING_CATEGORY_OPTIONS = [
     { value: 'Indirect', label: 'Indirect (Vendor)' }
 ];
 
-// Sama kayak di atas tapi buat dropdown FILTER (ada opsi "All Shipping" di paling atas)
-const SHIPPING_FILTER_OPTIONS = [{ value: '', label: 'All Shipping' }, ...SHIPPING_CATEGORY_OPTIONS];
+// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR
+const PR_SEARCH_FIELDS = [
+    { value: 'pr_number', label: 'Request Number' },
+    { value: 'branch_name', label: 'Branch' },
+    { value: 'shipping_category', label: 'Shipping' },
+    { value: 'required_date', label: 'Required Date' },
+    { value: 'notes', label: 'Notes' }
+];
+
+// Sama, tapi buat Daftar PO
+const PO_SEARCH_FIELDS = [
+    { value: 'po_number', label: 'PO Number' },
+    { value: 'pr_number', label: 'PR Reference' },
+    { value: 'branch_name', label: 'Branch' },
+    { value: 'shipping_category', label: 'Shipping' }
+];
 
 const app = createApp({
     setup() {
@@ -246,17 +317,15 @@ const app = createApp({
 
         const searchQuery = ref('');
         const filterStatus = ref('');
-        // Filter tambahan buat Daftar PR: Branch, Shipping, sama range tanggal Required Date
-        const prFilterBranch = ref('');
-        const prFilterShipping = ref('');
-        const prDateFrom = ref('');
-        const prDateTo = ref('');
-        // Filter buat Daftar PO: sama polanya kayak PR (Branch, Shipping, search, range tanggal Release Date)
+        // Search Daftar PR: dropdown "Select Target Column" (kolom mana yang di-search) + range tanggal Required Date
+        const prSearchField = ref('pr_number');
+        const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
+        const prDateRange = ref({ from: '', to: '' });
+        // Search Daftar PO: sama polanya kayak PR
         const poSearchQuery = ref('');
-        const poFilterBranch = ref('');
-        const poFilterShipping = ref('');
-        const poDateFrom = ref('');
-        const poDateTo = ref('');
+        const poSearchField = ref('po_number');
+        const poSearchFieldLabel = computed(() => (PO_SEARCH_FIELDS.find(f => f.value === poSearchField.value) || {}).label || '');
+        const poDateRange = ref({ from: '', to: '' });
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
 
@@ -343,28 +412,33 @@ const app = createApp({
         const filteredPRs = computed(() => {
             let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
-            if (prFilterBranch.value) result = result.filter(pr => pr.branch_name === prFilterBranch.value);
-            if (prFilterShipping.value) result = result.filter(pr => pr.shipping_category === prFilterShipping.value);
-            if (prDateFrom.value) result = result.filter(pr => pr.required_date && pr.required_date >= prDateFrom.value);
-            if (prDateTo.value) result = result.filter(pr => pr.required_date && pr.required_date <= prDateTo.value);
+            if (prDateRange.value.from) result = result.filter(pr => pr.required_date && pr.required_date >= prDateRange.value.from);
+            if (prDateRange.value.to) result = result.filter(pr => pr.required_date && pr.required_date <= prDateRange.value.to);
             if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase();
-                result = result.filter(pr => pr.pr_number.toLowerCase().includes(query));
+                result = result.filter(pr => {
+                    // "Required Date" di-search berdasarkan tampilan (dd-mm-yyyy) biar sesuai apa yang keliatan di user
+                    const raw = prSearchField.value === 'required_date' ? formatDate(pr.required_date) : pr[prSearchField.value];
+                    return String(raw || '').toLowerCase().includes(query);
+                });
             }
             return result;
         });
 
-        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Filter branch/shipping-nya
-        // ngikut PR induknya (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
+        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Branch/Shipping/PR Reference-nya
+        // ngikut PR induk (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
         const filteredPOs = computed(() => {
             let result = brandPOs.value;
-            if (poFilterBranch.value) result = result.filter(po => po.purchase_requests?.branch_name === poFilterBranch.value);
-            if (poFilterShipping.value) result = result.filter(po => po.purchase_requests?.shipping_category === poFilterShipping.value);
-            if (poDateFrom.value) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateFrom.value);
-            if (poDateTo.value) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateTo.value);
+            if (poDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateRange.value.from);
+            if (poDateRange.value.to) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateRange.value.to);
             if (poSearchQuery.value) {
                 const query = poSearchQuery.value.toLowerCase();
-                result = result.filter(po => po.po_number.toLowerCase().includes(query));
+                result = result.filter(po => {
+                    let raw;
+                    if (poSearchField.value === 'po_number') raw = po.po_number;
+                    else raw = po.purchase_requests?.[poSearchField.value];
+                    return String(raw || '').toLowerCase().includes(query);
+                });
             }
             return result;
         });
@@ -412,8 +486,6 @@ const app = createApp({
             value: p.id,
             label: p.unit ? `${p.name} (${p.unit})` : p.name
         })));
-        // Sama kayak branchOptions tapi buat dropdown FILTER (ada opsi "All Branch" di paling atas)
-        const branchFilterOptions = computed(() => [{ value: '', label: 'All Branch' }, ...branchOptions.value]);
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
         const formatDate = (dateStr) => {
@@ -875,8 +947,8 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
-            prFilterBranch, prFilterShipping, prDateFrom, prDateTo, branchFilterOptions, SHIPPING_FILTER_OPTIONS,
-            poSearchQuery, poFilterBranch, poFilterShipping, poDateFrom, poDateTo,
+            prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
+            poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
             SHIPPING_CATEGORY_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
@@ -893,4 +965,5 @@ const app = createApp({
     }
 })
     .component('searchable-select', SearchableSelect)
+    .component('date-range-filter', DateRangeFilter)
     .mount('#app');

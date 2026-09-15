@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="nyeni/style.css">
+    <!-- Flatpickr -- kalender buat Date Range Filter (dari-sampe) di Daftar PR & Daftar PO -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -305,7 +308,7 @@
                                 <div class="field qty-field" style="margin-bottom:0;">
                                     <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
                                 </div>
-                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i> Tambah</button>
+                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i></button>
                             </div>
 
                             <div class="pr-item-list">
@@ -319,7 +322,7 @@
                             <div class="field"><label>Notes</label><textarea v-model="form.notes" rows="3"></textarea></div>
                             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
                                 <button type="button" class="btn-ghost" @click="currentTab = 'daftar-pr'">Cancel</button>
-                                <button type="submit" class="btn-primary">Submit Request</button>
+                                <button type="submit" class="btn-primary">Confirm</button>
                             </div>
                         </form>
                     </div>
@@ -331,23 +334,19 @@
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
                             <div style="min-width: 140px;"><searchable-select v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="All Status"></searchable-select></div>
-                            <div style="min-width: 150px;"><searchable-select v-model="prFilterBranch" :options="branchFilterOptions" placeholder="All Branch"></searchable-select></div>
-                            <div style="min-width: 150px;"><searchable-select v-model="prFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
-                            <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Search Request..." v-model="searchQuery"></div>
+                            <div class="search-combo">
+                                <div style="min-width: 160px;"><searchable-select v-model="prSearchField" :options="PR_SEARCH_FIELDS"></searchable-select></div>
+                                <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
+                            </div>
                         </div>
                         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                            <div class="date-range-filter">
-                                <i class="bi bi-calendar3"></i>
-                                <input type="date" v-model="prDateFrom">
-                                <span>&rarr;</span>
-                                <input type="date" v-model="prDateTo">
-                            </div>
-                            <button class="btn-primary" @click="currentTab = 'buat-pr'"><i class="bi bi-plus-lg me-1"></i> Create Request</button>
+                            <date-range-filter v-model="prDateRange"></date-range-filter>
+                            <button class="btn-primary" @click="currentTab = 'buat-pr'"><i class="bi bi-plus-lg me-1"></i> Create</button>
                         </div>
                     </div>
                     <div class="produk-table-wrap">
                         <table class="produk-table">
-                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>Req. Date</th><th>Required Date</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
+                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>Req. Date</th><th>Required Date</th><th>Status</th><th style="text-align: center;">Action</th></tr></thead>
                             <tbody>
                                 <tr v-for="pr in filteredPRs" :key="pr.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ pr.pr_number }}</td>
@@ -392,7 +391,7 @@
                             <div class="field qty-field" style="margin-bottom:0;">
                                 <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
                             </div>
-                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i> Tambah</button>
+                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i></button>
                         </div>
 
                         <div class="pr-item-list">
@@ -419,16 +418,12 @@
                     <h2 style="margin-bottom: 24px;">Purchase Order</h2>
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
-                            <div style="min-width: 150px;"><searchable-select v-model="poFilterBranch" :options="branchFilterOptions" placeholder="All Branch"></searchable-select></div>
-                            <div style="min-width: 150px;"><searchable-select v-model="poFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
-                            <div class="search-box"><i class="bi bi-search"></i><input type="text" placeholder="Search PO Number..." v-model="poSearchQuery"></div>
+                            <div class="search-combo">
+                                <div style="min-width: 160px;"><searchable-select v-model="poSearchField" :options="PO_SEARCH_FIELDS"></searchable-select></div>
+                                <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>
+                            </div>
                         </div>
-                        <div class="date-range-filter">
-                            <i class="bi bi-calendar3"></i>
-                            <input type="date" v-model="poDateFrom">
-                            <span>&rarr;</span>
-                            <input type="date" v-model="poDateTo">
-                        </div>
+                        <date-range-filter v-model="poDateRange"></date-range-filter>
                     </div>
                     <div class="produk-table-wrap">
                         <table class="produk-table">
@@ -441,7 +436,7 @@
                                     <td>{{ po.purchase_requests?.shipping_category || '-' }}</td>
                                     <td>{{ formatDate(po.created_at) }}</td>
                                     <td style="text-align: right;">
-                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;"><i class="bi bi-eye"></i> View</button>
+                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;" title="View Details"><i class="bi bi-eye"></i></button>
                                     </td>
                                 </tr>
                                 <tr v-if="filteredPOs.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
