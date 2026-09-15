@@ -24,7 +24,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .field input, .field select, .field textarea, select{
     width: 100%; border: 1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px; color:var(--ink);
 }
-.field input:focus, .field select:focus, .field textarea:focus{ background:#fff; }
+.field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--primary); background:#fff; }
 .btn-primary{
     position:relative; z-index:1; overflow:hidden; padding:11px 20px; border-radius:11px; letter-spacing:.01em; font-weight: 600; color: white; border: none; cursor: pointer;
     background:linear-gradient(135deg, #3d61e9, #2945c9); box-shadow:0 10px 19px rgba(52,85,219,.25);
@@ -135,13 +135,12 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .drf-clear{ background:transparent; border:none; color:var(--muted); cursor:pointer; padding:0; display:flex; align-items:center; font-size:15px; flex-shrink:0; }
 .drf-clear:hover{ color:var(--danger); }
 
-/* Flatpickr -- selarasin sama font & warna aksen app, sekalian diperkecil (default-nya kegedean) */
-.flatpickr-calendar{
-    font-family:'Inter', sans-serif; font-size:12.5px; box-shadow:var(--shadow); border-radius:14px;
-    width:250px !important;
-}
-.flatpickr-calendar .flatpickr-days, .flatpickr-calendar .dayContainer{ width:234px; min-width:234px; max-width:234px; }
-.flatpickr-day{ height:30px; line-height:30px; max-width:30px; font-size:12px; }
+/* Flatpickr -- selarasin sama font & warna aksen app. Lebar kalendernya SENGAJA
+   gak di-fix di sini -- itu di-set dinamis lewat JS (lihat syncFlatpickrWidth di
+   app.js) biar persis sama lebar box pemicunya (date-range-filter / date-picker-field)
+   dan nempel pas di bawahnya, bukan lebar fix yang belom tentu cocok di semua box. */
+.flatpickr-calendar{ font-family:'Inter', sans-serif; font-size:12.5px; box-shadow:var(--shadow); border-radius:14px; }
+.flatpickr-day{ height:30px; line-height:30px; font-size:12px; }
 .flatpickr-months{ padding-top:4px; }
 .flatpickr-current-month{ font-size:13px; padding:0 0 4px 0; }
 .flatpickr-current-month .cur-month{ font-weight:600; }
@@ -194,6 +193,17 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-option.selected{ background:var(--primary-soft); color:var(--primary); font-weight:600; }
 .ss-empty{ padding:16px; text-align:center; color:var(--muted); font-size:12.5px; }
 
+/* Animasi buka/tutup dropdown -- gaya popover macOS: scale 95% -> 100% + fade,
+   titik poros (transform-origin) di atas biar keliatan "membesar" dari tombol
+   pemicunya (yang nempel pas di atas panel ini). Dipake di semua dropdown yang
+   pake komponen SearchableSelect (Status, Branch, Kategori, Barang, Search Field). */
+.pop-enter-active, .pop-leave-active{
+    transition: opacity .16s cubic-bezier(.2,.9,.3,1), transform .16s cubic-bezier(.2,.9,.3,1);
+    transform-origin: top center;
+}
+.pop-enter-from, .pop-leave-to{ opacity:0; transform: scale(.95); }
+.pop-enter-to, .pop-leave-from{ opacity:1; transform: scale(1); }
+
 /* ============================================================
    PURCHASE REQUEST -- form Buat PR & layar Detail/Edit PR.
    Container-nya dibikin murni CSS grid sendiri (bukan .row/.col-md-* Bootstrap),
@@ -214,11 +224,29 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-item-adder .field{ flex:1 1 auto; }
 .pr-item-adder .field.qty-field{ flex:0 0 110px; }
 .pr-item-adder > button{ flex-shrink:0; white-space:nowrap; align-self:flex-start; margin-top:0; height:47px; }
-.pr-item-list{ border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:20px; background:#fff; }
+/* overflow:hidden DIHAPUS -- itu nge-clip panel dropdown searchable-select pas
+   salah satu barisnya lagi di-edit (sama kasusnya kayak bug .field z-index dulu).
+   Sudut membulat tetep dijaga manual di baris pertama/terakhir di bawah. */
+.pr-item-list{ border:1px solid var(--border); border-radius:12px; margin-bottom:20px; background:#fff; }
+.pr-item-list > div:first-child{ border-top-left-radius:11px; border-top-right-radius:11px; }
+.pr-item-list > div:last-child{ border-bottom-left-radius:11px; border-bottom-right-radius:11px; }
 .pr-item-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); font-size:13.5px; }
 .pr-item-row:last-child{ border-bottom:none; }
 .pr-item-row .item-name{ font-weight:600; color:var(--ink); }
 .pr-item-row .item-qty{ color:var(--muted); font-size:12.5px; margin-left:8px; font-weight:600; }
+/* Item yang lagi di-edit-in-place (ganti barang/qty) di list Buat PR */
+.pr-item-row-edit{ justify-content:flex-start; gap:10px; background:#f8faff; }
+
+/* Date picker satu tanggal (dipake di field "Required Date" pas Buat PR) --
+   tampilannya diselarasin sama date-range-filter di Daftar PR, tapi ngikutin
+   ukuran/proporsi .field input biasa biar nyatu sama field lain di form. */
+.date-picker-field{
+    display:flex; align-items:center; gap:8px; width:100%; border:1px solid #dce4f0; background:#f8faff;
+    border-radius:11px; padding:12px 13px; cursor:pointer;
+}
+.date-picker-field:focus-within{ border-color:var(--primary); background:#fff; }
+.date-picker-field i{ color:var(--primary); font-size:14px; flex-shrink:0; }
+.date-picker-field input{ border:none; outline:none; background:transparent; font-size:14px; width:100%; color:var(--ink); font-weight:500; cursor:pointer; padding:0; }
 .pr-item-empty{ padding:22px; text-align:center; color:var(--muted); font-size:13px; }
 .pr-detail-grid{
     display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 300px)); gap:16px 24px;

@@ -294,10 +294,10 @@
                                 <div class="field"><label>Branch Name</label>
                                     <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --"></searchable-select>
                                 </div>
-                                <div class="field"><label>Shipping</label>
+                                <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
+                                <div class="field"><label>Kategori Pengiriman</label>
                                     <searchable-select v-model="form.shipping_category" :options="SHIPPING_CATEGORY_OPTIONS" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
-                                <div class="field"><label>Required Date</label><input type="date" v-model="form.required_date" required></div>
                             </div>
 
                             <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Nama Barang / Item &amp; Jumlah</label>
@@ -308,21 +308,38 @@
                                 <div class="field qty-field" style="margin-bottom:0;">
                                     <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
                                 </div>
-                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i></button>
+                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i> Tambah</button>
                             </div>
 
                             <div class="pr-item-list">
                                 <div v-if="form.items.length === 0" class="pr-item-empty">Belum ada item ditambahkan.</div>
-                                <div v-for="(it, idx) in form.items" :key="it.product_id" class="pr-item-row">
-                                    <div><span class="item-name">{{ it.item_name }}</span><span class="item-qty">x{{ it.qty }}</span></div>
-                                    <button type="button" class="btn-icon danger" @click="removeFormItem(idx)" title="Hapus"><i class="bi bi-trash3"></i></button>
-                                </div>
+                                <template v-for="(it, idx) in form.items" :key="it.product_id">
+                                    <!-- MODE EDIT -->
+                                    <div v-if="editingFormItemIdx === idx" class="pr-item-row pr-item-row-edit">
+                                        <div class="field" style="margin-bottom:0; flex:1 1 auto;">
+                                            <searchable-select v-model="editFormItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                                        </div>
+                                        <div class="field qty-field" style="margin-bottom:0;">
+                                            <input type="number" v-model.number="editFormItemQty" min="1" placeholder="Jumlah">
+                                        </div>
+                                        <button type="button" class="btn-icon success" @click="saveEditFormItem(idx)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                        <button type="button" class="btn-icon" @click="cancelEditFormItem" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                    <!-- MODE VIEW -->
+                                    <div v-else class="pr-item-row">
+                                        <div><span class="item-name">{{ it.item_name }}</span><span class="item-qty">x{{ it.qty }}</span></div>
+                                        <div style="display:flex; gap:6px;">
+                                            <button type="button" class="btn-icon" @click="startEditFormItem(idx)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                            <button type="button" class="btn-icon danger" @click="removeFormItem(idx)" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
 
                             <div class="field"><label>Notes</label><textarea v-model="form.notes" rows="3"></textarea></div>
                             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
-                                <button type="button" class="btn-ghost" @click="currentTab = 'daftar-pr'">Cancel</button>
-                                <button type="submit" class="btn-primary">Confirm</button>
+                                <button type="button" class="btn-ghost" @click="cancelBuatPR">Cancel</button>
+                                <button type="submit" class="btn-primary">Submit Request</button>
                             </div>
                         </form>
                     </div>
@@ -341,10 +358,10 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                             <date-range-filter v-model="prDateRange"></date-range-filter>
-                            <button class="btn-primary" @click="currentTab = 'buat-pr'"><i class="bi bi-plus-lg me-1"></i> Create</button>
+                            <button class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i> Create Request</button>
                         </div>
                     </div>
-                    <div class="produk-table-wrap">
+                    <div class="produk-table-wrap table-scroll">
                         <table class="produk-table">
                             <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>Req. Date</th><th>Required Date</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
                             <tbody>
@@ -357,7 +374,7 @@
                                     <td style="text-align: right;">
                                         <button @click="openEditPR(pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;">
                                             <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
-                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'Edit' : '' }}
+                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'Edit' : 'View' }}
                                         </button>
                                     </td>
                                 </tr>
@@ -376,13 +393,13 @@
                     <div class="pr-form-card">
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
-                            <div><div class="pr-detail-label">Shipping</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
                             <div style="grid-column: 1 / -1;"><div class="pr-detail-label">Notes</div><div class="pr-detail-value" style="font-weight:500;">{{ editingPR.notes || '-' }}</div></div>
                         </div>
 
-                        <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; font-weight:600;">Item Barang</label>
+                        <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Item Barang</label>
 
                         <div v-if="canEditPR" class="pr-item-adder">
                             <div class="field" style="margin-bottom:0;">
@@ -391,7 +408,7 @@
                             <div class="field qty-field" style="margin-bottom:0;">
                                 <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
                             </div>
-                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i></button>
+                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i> Tambah</button>
                         </div>
 
                         <div class="pr-item-list">
@@ -425,7 +442,7 @@
                         </div>
                         <date-range-filter v-model="poDateRange"></date-range-filter>
                     </div>
-                    <div class="produk-table-wrap">
+                    <div class="produk-table-wrap table-scroll">
                         <table class="produk-table">
                             <thead><tr><th>PO Number</th><th>PR Reference</th><th>Branch Name</th><th>Shipping</th><th>Release Date</th><th style="text-align: right;">Action</th></tr></thead>
                             <tbody>
@@ -436,7 +453,7 @@
                                     <td>{{ po.purchase_requests?.shipping_category || '-' }}</td>
                                     <td>{{ formatDate(po.created_at) }}</td>
                                     <td style="text-align: right;">
-                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;" title="View Details"><i class="bi bi-eye"></i></button>
+                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;"><i class="bi bi-eye"></i> View</button>
                                     </td>
                                 </tr>
                                 <tr v-if="filteredPOs.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
@@ -455,7 +472,7 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">PR Reference</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pr_number || '-' }}</div></div>
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
-                            <div><div class="pr-detail-label">Shipping</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">Release Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.created_at) }}</div></div>
                         </div>
 

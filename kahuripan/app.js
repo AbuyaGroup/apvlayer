@@ -65,19 +65,21 @@ const SearchableSelect = {
                 <span :class="{ 'ss-placeholder': !selectedLabel }">{{ selectedLabel || placeholder }}</span>
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
             </div>
-            <div v-if="isOpen" class="ss-panel">
-                <div class="ss-search" @click.stop>
-                    <i class="bi bi-search"></i>
-                    <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
-                </div>
-                <div class="ss-options">
-                    <div v-for="opt in filteredOptions" :key="opt.value" class="ss-option"
-                         :class="{ selected: opt.value === modelValue }" @click="selectOption(opt)">
-                        {{ opt.label }}
+            <Transition name="pop">
+                <div v-if="isOpen" class="ss-panel">
+                    <div class="ss-search" @click.stop>
+                        <i class="bi bi-search"></i>
+                        <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
                     </div>
-                    <div v-if="filteredOptions.length === 0" class="ss-empty">Gak ada yang cocok.</div>
+                    <div class="ss-options">
+                        <div v-for="opt in filteredOptions" :key="opt.value" class="ss-option"
+                             :class="{ selected: opt.value === modelValue }" @click="selectOption(opt)">
+                            {{ opt.label }}
+                        </div>
+                        <div v-if="filteredOptions.length === 0" class="ss-empty">Gak ada yang cocok.</div>
+                    </div>
                 </div>
-            </div>
+            </Transition>
         </div>
     `,
     setup(props, { emit }) {
@@ -120,6 +122,32 @@ const SearchableSelect = {
     }
 };
 
+// Bikin format tanggal Date -> 'YYYY-MM-DD' (dipake barengan sama DateRangeFilter & DatePickerField)
+function dateToISO(d) {
+    if (!d) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// Paksa lebar kalender flatpickr SAMA PERSIS kayak lebar box pemicunya (boxEl),
+// biar gak ada kalender yang lebih lebar/sempit dari box-nya kayak yang dikeluhin.
+// flatpickr nge-set lebar beberapa elemen internalnya sendiri (inline style), jadi
+// kita timpa manual abis instance-nya kebentuk/dibuka.
+function syncFlatpickrWidth(instance, boxEl) {
+    if (!instance || !boxEl) return;
+    const w = boxEl.offsetWidth;
+    if (!w) return;
+    const px = w + 'px';
+    instance.calendarContainer.style.width = px;
+    ['.flatpickr-innerContainer', '.flatpickr-rContainer', '.flatpickr-months', '.flatpickr-weekdays', '.flatpickr-days', '.dayContainer']
+        .forEach(sel => {
+            const el = instance.calendarContainer.querySelector(sel);
+            if (el) { el.style.width = px; el.style.minWidth = px; el.style.maxWidth = px; }
+        });
+}
+
 // ============================================================
 // KOMPONEN DATE RANGE PICKER -- kalender beneran (dari-sampe) pake library
 // flatpickr (di-load di index.html). Ganti 2 kotak <input type=date> yang lama.
@@ -132,7 +160,7 @@ const DateRangeFilter = {
     },
     emits: ['update:modelValue'],
     template: `
-        <div class="date-range-filter">
+        <div class="date-range-filter" ref="wrapEl">
             <i class="bi bi-calendar3"></i>
             <input type="text" ref="inputEl" :placeholder="placeholder" readonly>
             <button v-if="modelValue.from || modelValue.to" type="button" class="drf-clear" @click="clearRange" title="Hapus filter tanggal">
@@ -142,24 +170,20 @@ const DateRangeFilter = {
     `,
     setup(props, { emit }) {
         const inputEl = ref(null);
+        const wrapEl = ref(null);
         let fp = null;
-
-        const toISO = (d) => {
-            if (!d) return '';
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
 
         onMounted(() => {
             fp = flatpickr(inputEl.value, {
                 mode: 'range',
                 dateFormat: 'd-m-Y',
                 showMonths: 1, // 1 bulan aja -- 2 bulan kegedean di layar kecil
+                positionElement: wrapEl.value, // posisi kalender ngikutin box bungkusnya (bukan cuma <input>-nya), biar nempel pas di bawah box & rata kiri-kanan
+                onReady: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
+                onOpen: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
                 onChange: (selectedDates) => {
                     if (selectedDates.length === 2) {
-                        emit('update:modelValue', { from: toISO(selectedDates[0]), to: toISO(selectedDates[1]) });
+                        emit('update:modelValue', { from: dateToISO(selectedDates[0]), to: dateToISO(selectedDates[1]) });
                     } else if (selectedDates.length === 0) {
                         emit('update:modelValue', { from: '', to: '' });
                     }
@@ -173,7 +197,49 @@ const DateRangeFilter = {
             emit('update:modelValue', { from: '', to: '' });
         };
 
-        return { inputEl, clearRange };
+        return { inputEl, wrapEl, clearRange };
+    }
+};
+
+// ============================================================
+// KOMPONEN DATE PICKER SATUAN -- sama tampilannya kayak DateRangeFilter di
+// Daftar PR (ikon kalender + kalender flatpickr pas diklik), tapi cuma milih
+// 1 tanggal (bukan range). Dipake di field "Required Date" pas Buat PR.
+// v-model isinya string 'YYYY-MM-DD' (kosong kalo belum dipilih).
+// ============================================================
+const DatePickerField = {
+    props: {
+        modelValue: { type: String, default: '' },
+        placeholder: { type: String, default: 'Pilih tanggal...' }
+    },
+    emits: ['update:modelValue'],
+    template: `
+        <div class="date-picker-field" ref="wrapEl">
+            <i class="bi bi-calendar3"></i>
+            <input type="text" ref="inputEl" :placeholder="placeholder" readonly>
+        </div>
+    `,
+    setup(props, { emit }) {
+        const inputEl = ref(null);
+        const wrapEl = ref(null);
+        let fp = null;
+
+        onMounted(() => {
+            fp = flatpickr(inputEl.value, {
+                mode: 'single',
+                dateFormat: 'd-m-Y',
+                defaultDate: props.modelValue || undefined,
+                positionElement: wrapEl.value,
+                onReady: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
+                onOpen: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
+                onChange: (selectedDates) => {
+                    emit('update:modelValue', selectedDates.length ? dateToISO(selectedDates[0]) : '');
+                }
+            });
+        });
+        onUnmounted(() => { if (fp) fp.destroy(); });
+
+        return { inputEl, wrapEl };
     }
 };
 
@@ -313,7 +379,38 @@ const app = createApp({
         // sebelum di-submit bareng-bareng (baru masuk DB pas tombol Submit diklik)
         const form = ref({ branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] });
         const newItemProductId = ref('');
-        const newItemQty = ref(1);
+        // qty defaultnya null (bukan 0) -- kalo di-set 0, input type="number" bakal nampilin
+        // angka "0" literal (nutupin placeholder "Jumlah"), jadi keliatan kayak udah keisi
+        // padahal belom, dan orang gak sadar harus dihapus dulu sebelum ngetik jumlah beneran.
+        // null bikin field-nya kosong beneran (placeholder keliatan), tapi validasi "harus > 0"
+        // tetep jalan sama kayak sebelumnya (null itu falsy juga).
+        const newItemQty = ref(null);
+
+        // State edit-in-place buat item yang UDAH ditambahin ke form.items (belum ke-submit ke DB).
+        // Sebelumnya cuma bisa dihapus doang, sekarang barang/qty-nya bisa diganti tanpa hapus+tambah ulang.
+        const editingFormItemIdx = ref(null);
+        const editFormItemProductId = ref('');
+        const editFormItemQty = ref(null);
+
+        // Balikin form Buat PR ke kosong total -- dipake pas Cancel, pas mau buka
+        // form baru (biar gak kebawa data PR yang sebelumnya lagi diisi/dibatalin),
+        // dan abis submit sukses.
+        const resetPRForm = () => {
+            form.value = { branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] };
+            newItemProductId.value = '';
+            newItemQty.value = null;
+            editingFormItemIdx.value = null;
+            editFormItemProductId.value = '';
+            editFormItemQty.value = null;
+        };
+        const openBuatPR = () => {
+            resetPRForm();
+            currentTab.value = 'buat-pr';
+        };
+        const cancelBuatPR = () => {
+            resetPRForm();
+            currentTab.value = 'daftar-pr';
+        };
 
         const searchQuery = ref('');
         const filterStatus = ref('');
@@ -342,18 +439,42 @@ const app = createApp({
         // Nambah 1 item ke list form Buat PR (belum masuk DB, baru lokal di browser dulu)
         const addFormItem = () => {
             if (!newItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
+            if (!newItemQty.value || newItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
             const product = masterProducts.value.find(p => p.id === newItemProductId.value);
             if (!product) return;
             const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
             if (form.value.items.some(it => it.product_id === product.id)) {
-                alert('Item ini udah ada di list. Kalo mau ubah jumlahnya, hapus dulu terus tambah lagi.');
+                alert('Item ini udah ada di list. Kalo mau ubah jumlahnya, edit langsung item-nya di list bawah.');
                 return;
             }
-            form.value.items.push({ product_id: product.id, item_name: displayName, qty: newItemQty.value || 1 });
+            form.value.items.push({ product_id: product.id, item_name: displayName, qty: newItemQty.value });
             newItemProductId.value = '';
-            newItemQty.value = 1;
+            newItemQty.value = null;
         };
-        const removeFormItem = (idx) => { form.value.items.splice(idx, 1); };
+        const removeFormItem = (idx) => {
+            form.value.items.splice(idx, 1);
+            if (editingFormItemIdx.value === idx) editingFormItemIdx.value = null;
+        };
+
+        // Edit-in-place item yang udah ditambahin (ganti barang dan/atau qty-nya, tanpa hapus+tambah ulang)
+        const startEditFormItem = (idx) => {
+            const it = form.value.items[idx];
+            editingFormItemIdx.value = idx;
+            editFormItemProductId.value = it.product_id;
+            editFormItemQty.value = it.qty;
+        };
+        const cancelEditFormItem = () => { editingFormItemIdx.value = null; };
+        const saveEditFormItem = (idx) => {
+            if (!editFormItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
+            if (!editFormItemQty.value || editFormItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
+            const product = masterProducts.value.find(p => p.id === editFormItemProductId.value);
+            if (!product) return;
+            const isDuplicate = form.value.items.some((it, i) => i !== idx && it.product_id === product.id);
+            if (isDuplicate) { alert('Barang ini udah ada di item lain di list.'); return; }
+            const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
+            form.value.items[idx] = { product_id: product.id, item_name: displayName, qty: editFormItemQty.value };
+            editingFormItemIdx.value = null;
+        };
 
         // ============================================================
         // AM/MASTER REVIEW PR -- edit item (tambah/hapus/ubah qty) + approve/reject.
@@ -365,7 +486,7 @@ const app = createApp({
         // begitu fetchData() jalan lagi (misal abis approve/tambah item), datanya ikut ke-update
         const editingPR = computed(() => editingPRId.value ? (prs.value.find(pr => pr.id === editingPRId.value) || null) : null);
         const editPRNewItemProductId = ref('');
-        const editPRNewItemQty = ref(1);
+        const editPRNewItemQty = ref(null); // null biar field kosong (placeholder "Jumlah" keliatan), bukan nampilin "0"
 
         const editPRItems = computed(() => editingPR.value ? (itemsByPrId.value[editingPR.value.id] || []) : []);
         // Cuma AM/Master yang bisa edit, dan cuma kalo PR-nya masih Pending
@@ -644,6 +765,7 @@ const app = createApp({
             // Validasi manual -- dropdown Cabang & Kategori Pengiriman sekarang komponen custom
             // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
             if (!form.value.branch_name) { alert('Pilih cabang dulu ya.'); return; }
+            if (!form.value.required_date) { alert('Pilih Required Date dulu ya.'); return; }
             if (!form.value.shipping_category) { alert('Pilih kategori pengiriman dulu ya.'); return; }
             if (form.value.items.length === 0) { alert('Tambahkan minimal 1 item barang dulu ya.'); return; }
             try {
@@ -680,7 +802,7 @@ const app = createApp({
                     return;
                 }
 
-                form.value = { branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] };
+                resetPRForm();
                 await fetchData();
                 currentTab.value = 'daftar-pr';
             } catch (err) {
@@ -692,7 +814,7 @@ const app = createApp({
         const openEditPR = (pr) => {
             editingPRId.value = pr.id;
             editPRNewItemProductId.value = '';
-            editPRNewItemQty.value = 1;
+            editPRNewItemQty.value = null;
             currentTab.value = 'edit-pr';
         };
         const backFromEditPR = () => {
@@ -705,6 +827,7 @@ const app = createApp({
         const addItemToEditingPR = async () => {
             if (!editingPR.value) return;
             if (!editPRNewItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
+            if (!editPRNewItemQty.value || editPRNewItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
             const product = masterProducts.value.find(p => p.id === editPRNewItemProductId.value);
             if (!product) return;
             const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
@@ -715,11 +838,11 @@ const app = createApp({
             const { error } = await supabaseClient.from('purchase_request_items').insert({
                 pr_id: editingPR.value.id,
                 item_name: displayName,
-                qty: editPRNewItemQty.value || 1
+                qty: editPRNewItemQty.value
             });
             if (error) { alert('Gagal nambah item: ' + error.message); return; }
             editPRNewItemProductId.value = '';
-            editPRNewItemQty.value = 1;
+            editPRNewItemQty.value = null;
             await fetchData();
         };
 
@@ -950,7 +1073,8 @@ const app = createApp({
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
             poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
-            SHIPPING_CATEGORY_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem,
+            SHIPPING_CATEGORY_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
+            editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
             openEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
             viewingPO, viewingPOItems, openViewPO, backFromViewPO,
@@ -966,4 +1090,5 @@ const app = createApp({
 })
     .component('searchable-select', SearchableSelect)
     .component('date-range-filter', DateRangeFilter)
+    .component('date-picker-field', DatePickerField)
     .mount('#app');
