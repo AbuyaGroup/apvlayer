@@ -128,6 +128,15 @@ const STATUS_OPTIONS = [
     { value: 'Rejected', label: 'Rejected' }
 ];
 
+// Opsi buat dropdown Kategori Pengiriman di form PR
+const SHIPPING_CATEGORY_OPTIONS = [
+    { value: 'Direct', label: 'Direct (Distribution Center)' },
+    { value: 'Indirect', label: 'Indirect (Vendor)' }
+];
+
+// Sama kayak di atas tapi buat dropdown FILTER (ada opsi "All Shipping" di paling atas)
+const SHIPPING_FILTER_OPTIONS = [{ value: '', label: 'All Shipping' }, ...SHIPPING_CATEGORY_OPTIONS];
+
 const app = createApp({
     setup() {
         // STATE AUTENTIKASI
@@ -170,6 +179,8 @@ const app = createApp({
             userRole.value = '';
             userBrand.value = null;
             loginForm.value = { email: '', password: '' };
+            editingPRId.value = null;
+            viewingPOId.value = null;
             currentTab.value = 'dashboard';
         };
 
@@ -214,21 +225,104 @@ const app = createApp({
         const restoreLastTab = (role) => {
             try {
                 const saved = localStorage.getItem('lastActiveTab');
-                if (saved && (!saved.startsWith('master') || role === 'Master')) {
+                // 'edit-pr'/'view-po' gak di-restore -- editingPR/viewingPO cuma ada di memori
+                // browser, ilang pas refresh, jadi kalo dipaksa balik ke tab ini layarnya bakal kosong
+                if (saved && saved !== 'edit-pr' && saved !== 'view-po' && (!saved.startsWith('master') || role === 'Master')) {
                     currentTab.value = saved;
                 }
             } catch (e) {}
         };
         const prs = ref([]);
         const pos = ref([]);
+        const prItems = ref([]); // isi purchase_request_items -- item-item di tiap PR (1 PR bisa banyak item sekarang)
         const masterBranches = ref([]);
         const masterProducts = ref([]);
 
-        const form = ref({ branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' });
+        // form Buat PR -- gak ada harga/total lagi, item-nya dikumpulin dulu di form.items
+        // sebelum di-submit bareng-bareng (baru masuk DB pas tombol Submit diklik)
+        const form = ref({ branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] });
+        const newItemProductId = ref('');
+        const newItemQty = ref(1);
+
         const searchQuery = ref('');
         const filterStatus = ref('');
+        // Filter tambahan buat Daftar PR: Branch, Shipping, sama range tanggal Required Date
+        const prFilterBranch = ref('');
+        const prFilterShipping = ref('');
+        const prDateFrom = ref('');
+        const prDateTo = ref('');
+        // Filter buat Daftar PO: sama polanya kayak PR (Branch, Shipping, search, range tanggal Release Date)
+        const poSearchQuery = ref('');
+        const poFilterBranch = ref('');
+        const poFilterShipping = ref('');
+        const poDateFrom = ref('');
+        const poDateTo = ref('');
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
+
+        // Kelompokin item per pr_id biar gampang dipanggil di template: itemsByPrId[pr.id]
+        const itemsByPrId = computed(() => {
+            const map = {};
+            prItems.value.forEach(it => {
+                if (!map[it.pr_id]) map[it.pr_id] = [];
+                map[it.pr_id].push(it);
+            });
+            return map;
+        });
+
+        // Nambah 1 item ke list form Buat PR (belum masuk DB, baru lokal di browser dulu)
+        const addFormItem = () => {
+            if (!newItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
+            const product = masterProducts.value.find(p => p.id === newItemProductId.value);
+            if (!product) return;
+            const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
+            if (form.value.items.some(it => it.product_id === product.id)) {
+                alert('Item ini udah ada di list. Kalo mau ubah jumlahnya, hapus dulu terus tambah lagi.');
+                return;
+            }
+            form.value.items.push({ product_id: product.id, item_name: displayName, qty: newItemQty.value || 1 });
+            newItemProductId.value = '';
+            newItemQty.value = 1;
+        };
+        const removeFormItem = (idx) => { form.value.items.splice(idx, 1); };
+
+        // ============================================================
+        // AM/MASTER REVIEW PR -- edit item (tambah/hapus/ubah qty) + approve/reject.
+        // Beda sama form.items di atas: di sini tiap aksi LANGSUNG nyimpen ke DB
+        // (bukan draft lokal dulu), soalnya PR-nya emang udah ada/tersimpan.
+        // ============================================================
+        const editingPRId = ref(null); // ID PR yang lagi dibuka di layar Detail/Edit
+        // Ambil objek PR-nya langsung dari prs (bukan disimpen sebagai objek statis) biar
+        // begitu fetchData() jalan lagi (misal abis approve/tambah item), datanya ikut ke-update
+        const editingPR = computed(() => editingPRId.value ? (prs.value.find(pr => pr.id === editingPRId.value) || null) : null);
+        const editPRNewItemProductId = ref('');
+        const editPRNewItemQty = ref(1);
+
+        const editPRItems = computed(() => editingPR.value ? (itemsByPrId.value[editingPR.value.id] || []) : []);
+        // Cuma AM/Master yang bisa edit, dan cuma kalo PR-nya masih Pending
+        const canEditPR = computed(() =>
+            !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'Master')
+        );
+
+        // ============================================================
+        // VIEW DETAIL PO -- read-only, dibuka dari tombol "View" di Daftar PO
+        // (item PO gak lagi di-show langsung di tabel list, biar tabelnya gak sesak)
+        // ============================================================
+        const viewingPOId = ref(null);
+        const viewingPO = computed(() => viewingPOId.value ? (pos.value.find(po => po.id === viewingPOId.value) || null) : null);
+        const viewingPOItems = computed(() => viewingPO.value ? (itemsByPrId.value[viewingPO.value.pr_id] || []) : []);
+        const openViewPO = (po) => { viewingPOId.value = po.id; currentTab.value = 'view-po'; };
+        const backFromViewPO = () => { viewingPOId.value = null; currentTab.value = 'daftar-po'; };
+
+        // STATE EDIT & BULK SELECT -- Master Branch
+        const editingBranchId = ref(null);
+        const editBranchForm = ref({ branch_name: '', branch_code: '', brand: '' });
+        const selectedBranchIds = ref([]);
+
+        // STATE EDIT & BULK SELECT -- Master Product
+        const editingProductId = ref(null);
+        const editProductForm = ref({ name: '', unit: '', brand: '' });
+        const selectedProductIds = ref([]);
 
         // Brand yang lagi "aktif" di workspace ini: AM selalu kekunci ke brand-nya sendiri,
         // Master ngikut brand yang dia pilih di layar login (biar pas masuk salah satu "kamar"
@@ -249,9 +343,28 @@ const app = createApp({
         const filteredPRs = computed(() => {
             let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
+            if (prFilterBranch.value) result = result.filter(pr => pr.branch_name === prFilterBranch.value);
+            if (prFilterShipping.value) result = result.filter(pr => pr.shipping_category === prFilterShipping.value);
+            if (prDateFrom.value) result = result.filter(pr => pr.required_date && pr.required_date >= prDateFrom.value);
+            if (prDateTo.value) result = result.filter(pr => pr.required_date && pr.required_date <= prDateTo.value);
             if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase();
                 result = result.filter(pr => pr.pr_number.toLowerCase().includes(query));
+            }
+            return result;
+        });
+
+        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Filter branch/shipping-nya
+        // ngikut PR induknya (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
+        const filteredPOs = computed(() => {
+            let result = brandPOs.value;
+            if (poFilterBranch.value) result = result.filter(po => po.purchase_requests?.branch_name === poFilterBranch.value);
+            if (poFilterShipping.value) result = result.filter(po => po.purchase_requests?.shipping_category === poFilterShipping.value);
+            if (poDateFrom.value) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateFrom.value);
+            if (poDateTo.value) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateTo.value);
+            if (poSearchQuery.value) {
+                const query = poSearchQuery.value.toLowerCase();
+                result = result.filter(po => po.po_number.toLowerCase().includes(query));
             }
             return result;
         });
@@ -280,6 +393,14 @@ const app = createApp({
             return brandManagedProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
+        // "Select all" nyala kalo semua baris yang lagi keliatan (hasil search) udah dipilih
+        const allBranchesSelected = computed(() =>
+            filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
+        );
+        const allProductsSelected = computed(() =>
+            filteredProducts.value.length > 0 && selectedProductIds.value.length === filteredProducts.value.length
+        );
+
         // Dropdown cabang & item pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
         // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
         const brandBranches = brandManagedBranches;
@@ -291,6 +412,8 @@ const app = createApp({
             value: p.id,
             label: p.unit ? `${p.name} (${p.unit})` : p.name
         })));
+        // Sama kayak branchOptions tapi buat dropdown FILTER (ada opsi "All Branch" di paling atas)
+        const branchFilterOptions = computed(() => [{ value: '', label: 'All Branch' }, ...branchOptions.value]);
 
         const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
         const formatDate = (dateStr) => {
@@ -367,16 +490,18 @@ const app = createApp({
 
         const fetchData = async () => {
             try {
-                const [prRes, poRes, branchRes, productRes] = await Promise.all([
+                const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
-                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, item_name, qty, total_price, brand)').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
+                    supabaseClient.from('purchase_request_items').select('*').order('id'),
                 ]);
                 prs.value = prRes.data || [];
                 pos.value = poRes.data || [];
                 masterBranches.value = branchRes.data || [];
                 masterProducts.value = productRes.data || [];
+                prItems.value = itemRes.data || [];
             } catch (err) {
                 console.error('Gagal ambil data:', err);
             }
@@ -444,48 +569,101 @@ const app = createApp({
         };
 
         const submitPR = async () => {
-            // Validasi manual -- dropdown Cabang & Barang sekarang komponen custom
+            // Validasi manual -- dropdown Cabang & Kategori Pengiriman sekarang komponen custom
             // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
             if (!form.value.branch_name) { alert('Pilih cabang dulu ya.'); return; }
-            if (!form.value.item) { alert('Pilih barang/item dulu ya.'); return; }
+            if (!form.value.shipping_category) { alert('Pilih kategori pengiriman dulu ya.'); return; }
+            if (form.value.items.length === 0) { alert('Tambahkan minimal 1 item barang dulu ya.'); return; }
             try {
-                const totalPrice = (form.value.qty || 0) * (form.value.price || 0);
                 // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
                 // yang bisa akses semua brand tetep ke-tag PR-nya dengan bener)
                 const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
                 const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
 
-                // form.item sekarang nyimpen ID produk (bukan nama), soalnya nama produk bisa
-                // dobel kalo unit-nya beda (misal "Air Mineral 220ml" Carton vs pcs)
-                const matchedProduct = masterProducts.value.find(p => p.id === form.value.item);
-                const itemName = matchedProduct
-                    ? (matchedProduct.unit ? `${matchedProduct.name} (${matchedProduct.unit})` : matchedProduct.name)
-                    : form.value.item;
-
-                const { error } = await supabaseClient.from('purchase_requests').insert({
+                // Bikin dulu PR-nya (tanpa item), .select().single() biar dapet id-nya balik
+                const { data: newPR, error } = await supabaseClient.from('purchase_requests').insert({
                     pr_number: generateNumber('PR'),
                     branch_name: form.value.branch_name,
-                    item_name: itemName,
-                    qty: form.value.qty,
-                    price: form.value.price,
-                    total_price: totalPrice,
+                    shipping_category: form.value.shipping_category,
                     required_date: form.value.required_date || null,
                     notes: form.value.notes,
                     brand: prBrand,
                     status: 'Pending'
-                });
+                }).select().single();
 
                 if (error) {
                     alert('Gagal submit PR: ' + error.message);
                     return;
                 }
 
-                form.value = { branch_name: '', required_date: '', item: '', qty: 1, price: 0, notes: '' };
+                // Abis PR-nya kebikin, baru masukin semua item yang udah dikumpulin di form.items
+                const itemsPayload = form.value.items.map(it => ({
+                    pr_id: newPR.id,
+                    item_name: it.item_name,
+                    qty: it.qty
+                }));
+                const { error: itemsError } = await supabaseClient.from('purchase_request_items').insert(itemsPayload);
+                if (itemsError) {
+                    alert('PR kebikin, tapi gagal simpan item-nya: ' + itemsError.message);
+                    return;
+                }
+
+                form.value = { branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] };
                 await fetchData();
                 currentTab.value = 'daftar-pr';
             } catch (err) {
                 alert('Gagal submit PR');
             }
+        };
+
+        // Buka layar Detail/Edit PR (AM/Master pake ini buat ngecek item yang direquest SM)
+        const openEditPR = (pr) => {
+            editingPRId.value = pr.id;
+            editPRNewItemProductId.value = '';
+            editPRNewItemQty.value = 1;
+            currentTab.value = 'edit-pr';
+        };
+        const backFromEditPR = () => {
+            editingPRId.value = null;
+            currentTab.value = 'daftar-pr';
+        };
+
+        // Nambah item baru ke PR yang lagi di-review -- LANGSUNG kesimpen ke DB (auto-save),
+        // gak pake tombol "Simpan" terpisah, soalnya PR-nya emang udah ada/tersimpan.
+        const addItemToEditingPR = async () => {
+            if (!editingPR.value) return;
+            if (!editPRNewItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
+            const product = masterProducts.value.find(p => p.id === editPRNewItemProductId.value);
+            if (!product) return;
+            const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
+            if (editPRItems.value.some(it => it.item_name === displayName)) {
+                alert('Item ini udah ada di PR ini.');
+                return;
+            }
+            const { error } = await supabaseClient.from('purchase_request_items').insert({
+                pr_id: editingPR.value.id,
+                item_name: displayName,
+                qty: editPRNewItemQty.value || 1
+            });
+            if (error) { alert('Gagal nambah item: ' + error.message); return; }
+            editPRNewItemProductId.value = '';
+            editPRNewItemQty.value = 1;
+            await fetchData();
+        };
+
+        // Ubah qty item yang udah ada -- auto-save langsung begitu diubah
+        const updateEditingPRItemQty = async (item) => {
+            const qty = Number(item.qty) || 1;
+            const { error } = await supabaseClient.from('purchase_request_items').update({ qty }).eq('id', item.id);
+            if (error) alert('Gagal update jumlah: ' + error.message);
+            await fetchData();
+        };
+
+        const removeItemFromEditingPR = async (itemId) => {
+            if (!confirm('Hapus item ini dari PR?')) return;
+            const { error } = await supabaseClient.from('purchase_request_items').delete().eq('id', itemId);
+            if (error) { alert('Gagal hapus item: ' + error.message); return; }
+            await fetchData();
         };
 
         const approvePR = async (id) => {
@@ -503,6 +681,8 @@ const app = createApp({
             });
             if (poError) alert('PR ke-approve, tapi gagal bikin PO: ' + poError.message);
 
+            editingPRId.value = null;
+            currentTab.value = 'daftar-pr';
             fetchData();
         };
 
@@ -510,6 +690,8 @@ const app = createApp({
             if (!confirm('Yakin mau menolak PR ini?')) return;
             const { error } = await supabaseClient.from('purchase_requests').update({ status: 'Rejected' }).eq('id', id);
             if (error) alert('Gagal menolak PR: ' + error.message);
+            editingPRId.value = null;
+            currentTab.value = 'daftar-pr';
             fetchData();
         };
 
@@ -574,6 +756,98 @@ const app = createApp({
             }
         };
 
+        // ============================================================
+        // EDIT & HAPUS -- MASTER BRANCH (Master only, dicek juga sama RLS di DB)
+        // ============================================================
+        const toggleBranchSelect = (id) => {
+            const idx = selectedBranchIds.value.indexOf(id);
+            if (idx === -1) selectedBranchIds.value.push(id);
+            else selectedBranchIds.value.splice(idx, 1);
+        };
+        const toggleSelectAllBranches = () => {
+            selectedBranchIds.value = allBranchesSelected.value ? [] : filteredBranches.value.map(b => b.id);
+        };
+        const startEditBranch = (b) => {
+            editingProductId.value = null; // tutup edit produk kalo lagi kebuka
+            editingBranchId.value = b.id;
+            editBranchForm.value = { branch_name: b.branch_name, branch_code: b.branch_code || '', brand: b.brand || '' };
+        };
+        const cancelEditBranch = () => { editingBranchId.value = null; };
+        const saveEditBranch = async (id) => {
+            if (!editBranchForm.value.branch_name.trim()) { alert('Nama cabang gak boleh kosong.'); return; }
+            const { error } = await supabaseClient
+                .from('master_branches')
+                .update({
+                    branch_name: editBranchForm.value.branch_name.trim(),
+                    branch_code: editBranchForm.value.branch_code.trim(),
+                    brand: editBranchForm.value.brand || null
+                })
+                .eq('id', id);
+            if (error) {
+                alert('Gagal simpan: ' + error.message);
+                return;
+            }
+            editingBranchId.value = null;
+            fetchData();
+        };
+        const deleteBranches = async (ids) => {
+            if (ids.length === 0) return;
+            if (!confirm(`Yakin mau hapus ${ids.length} cabang ini? Gak bisa di-undo.`)) return;
+            const { error } = await supabaseClient.from('master_branches').delete().in('id', ids);
+            if (error) {
+                alert('Gagal hapus: ' + error.message);
+                return;
+            }
+            selectedBranchIds.value = selectedBranchIds.value.filter(id => !ids.includes(id));
+            fetchData();
+        };
+
+        // ============================================================
+        // EDIT & HAPUS -- MASTER PRODUCT (Master only, dicek juga sama RLS di DB)
+        // ============================================================
+        const toggleProductSelect = (id) => {
+            const idx = selectedProductIds.value.indexOf(id);
+            if (idx === -1) selectedProductIds.value.push(id);
+            else selectedProductIds.value.splice(idx, 1);
+        };
+        const toggleSelectAllProducts = () => {
+            selectedProductIds.value = allProductsSelected.value ? [] : filteredProducts.value.map(p => p.id);
+        };
+        const startEditProduct = (p) => {
+            editingBranchId.value = null; // tutup edit cabang kalo lagi kebuka
+            editingProductId.value = p.id;
+            editProductForm.value = { name: p.name, unit: p.unit || '', brand: p.brand || '' };
+        };
+        const cancelEditProduct = () => { editingProductId.value = null; };
+        const saveEditProduct = async (id) => {
+            if (!editProductForm.value.name.trim()) { alert('Nama produk gak boleh kosong.'); return; }
+            const { error } = await supabaseClient
+                .from('master_products')
+                .update({
+                    name: editProductForm.value.name.trim(),
+                    unit: editProductForm.value.unit.trim() || null,
+                    brand: editProductForm.value.brand || null
+                })
+                .eq('id', id);
+            if (error) {
+                alert('Gagal simpan: ' + error.message);
+                return;
+            }
+            editingProductId.value = null;
+            fetchData();
+        };
+        const deleteProducts = async (ids) => {
+            if (ids.length === 0) return;
+            if (!confirm(`Yakin mau hapus ${ids.length} produk ini? Gak bisa di-undo.`)) return;
+            const { error } = await supabaseClient.from('master_products').delete().in('id', ids);
+            if (error) {
+                alert('Gagal hapus: ' + error.message);
+                return;
+            }
+            selectedProductIds.value = selectedProductIds.value.filter(id => !ids.includes(id));
+            fetchData();
+        };
+
         // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
         // (brand mismatch gak perlu dicek ulang di sini karena session ini emang udah lolos validasi pas login pertama)
         onMounted(async () => {
@@ -600,10 +874,20 @@ const app = createApp({
         return {
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
-            currentTab, prs, pos, form, pendingPRs, filteredPRs, brandPRs, brandPOs, searchQuery, filterStatus,
+            currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
+            prFilterBranch, prFilterShipping, prDateFrom, prDateTo, branchFilterOptions, SHIPPING_FILTER_OPTIONS,
+            poSearchQuery, poFilterBranch, poFilterShipping, poDateFrom, poDateTo,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
+            SHIPPING_CATEGORY_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem,
+            editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
+            openEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
+            viewingPO, viewingPOItems, openViewPO, backFromViewPO,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
+            editingBranchId, editBranchForm, selectedBranchIds, allBranchesSelected,
+            toggleBranchSelect, toggleSelectAllBranches, startEditBranch, cancelEditBranch, saveEditBranch, deleteBranches,
+            editingProductId, editProductForm, selectedProductIds, allProductsSelected,
+            toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
             formatRp, formatDate, submitPR, approvePR, rejectPR
         };
     }
