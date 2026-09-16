@@ -307,6 +307,20 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-detail-label{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:700; margin-bottom:5px; }
 .pr-detail-value{ font-size:14.5px; font-weight:600; color:var(--ink); }
 
+/* Box "Information" di Detail PR/PO -- kapan dibuat/diedit & sama siapa. */
+.pr-info-box{
+    background:var(--surface-0); border:1px solid var(--border); border-radius:14px;
+    padding:14px 16px; margin-bottom:24px;
+}
+.pr-info-title{
+    display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.03em; margin-bottom:10px;
+}
+.pr-info-title i{ font-size:13px; }
+.pr-info-row{ display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:4px 0; flex-wrap:wrap; }
+.pr-info-row span:first-child{ color:var(--muted); font-weight:600; flex-shrink:0; }
+.pr-info-row span:last-child{ color:var(--ink); font-weight:500; text-align:right; }
+
 /* Kartu pilihan Brand di layar sebelum login */
 .brand-choice{
     display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border);

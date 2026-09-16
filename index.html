@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Request - Abuya Group</title>
+    <title>Approval Layer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -327,7 +327,10 @@
                                 </div>
                                 <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
                                 <div class="field"><label>Kategori Pengiriman</label>
-                                    <searchable-select v-model="form.shipping_category" :options="SHIPPING_CATEGORY_OPTIONS" placeholder="-- Pilih Kategori --"></searchable-select>
+                                    <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
+                                </div>
+                                <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
+                                    <searchable-select v-model="form.pic" :options="PIC_OPTIONS" placeholder="-- Pilih PIC --"></searchable-select>
                                 </div>
                             </div>
 
@@ -394,18 +397,19 @@
                     </div>
                     <div class="produk-table-wrap table-scroll">
                         <table class="produk-table">
-                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>Req. Date</th><th>Required Date</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
+                            <thead><tr><th>Request Number</th><th>Branch Name</th><th>Shipping</th><th>PIC</th><th>Required Date</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
                             <tbody>
                                 <tr v-for="pr in filteredPRs" :key="pr.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ pr.pr_number }}</td>
                                     <td>{{ pr.branch_name }}</td>
                                     <td>{{ pr.shipping_category || '-' }}</td>
-                                    <td>{{ formatDate(pr.created_at) }}</td><td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
+                                    <td>{{ pr.pic || '-' }}</td>
+                                    <td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
                                     <td><span class="status-badge" :class="pr.status.toLowerCase()">{{ pr.status }}</span></td>
                                     <td style="text-align: right;">
                                         <button @click="openEditPR(pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;">
                                             <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
-                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'Edit' : 'View' }}
+                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? '' : '' }}
                                         </button>
                                     </td>
                                 </tr>
@@ -425,9 +429,16 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
                             <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
                             <div style="grid-column: 1 / -1;"><div class="pr-detail-label">Notes</div><div class="pr-detail-value" style="font-weight:500;">{{ editingPR.notes || '-' }}</div></div>
+                        </div>
+
+                        <div class="pr-info-box">
+                            <div class="pr-info-title"><i class="bi bi-info-circle"></i> Information</div>
+                            <div class="pr-info-row"><span>Dibuat</span><span>{{ formatDateTime(editingPR.created_at) }} oleh {{ editingPR.created_by || '-' }}</span></div>
+                            <div class="pr-info-row" v-if="editingPR.updated_at"><span>Terakhir diedit</span><span>{{ formatDateTime(editingPR.updated_at) }} oleh {{ editingPR.updated_by || '-' }}</span></div>
                         </div>
 
                         <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Item Barang</label>
@@ -475,19 +486,20 @@
                     </div>
                     <div class="produk-table-wrap table-scroll">
                         <table class="produk-table">
-                            <thead><tr><th>PO Number</th><th>PR Reference</th><th>Branch Name</th><th>Shipping</th><th>Release Date</th><th style="text-align: right;">Action</th></tr></thead>
+                            <thead><tr><th>PO Number</th><th>PR Reference</th><th>Branch Name</th><th>Shipping</th><th>PIC</th><th>Release Date</th><th style="text-align: right;">Action</th></tr></thead>
                             <tbody>
                                 <tr v-for="po in filteredPOs" :key="po.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ po.po_number }}</td>
                                     <td><span style="background: var(--surface-0); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">{{ po.purchase_requests?.pr_number || '-' }}</span></td>
                                     <td>{{ po.purchase_requests?.branch_name || '-' }}</td>
                                     <td>{{ po.purchase_requests?.shipping_category || '-' }}</td>
+                                    <td>{{ po.purchase_requests?.pic || '-' }}</td>
                                     <td>{{ formatDate(po.created_at) }}</td>
                                     <td style="text-align: right;">
-                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;"><i class="bi bi-eye"></i> View</button>
+                                        <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;"><i class="bi bi-eye"></i></button>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredPOs.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
+                                <tr v-if="filteredPOs.length === 0"><td colspan="7" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -504,7 +516,13 @@
                             <div><div class="pr-detail-label">PR Reference</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pr_number || '-' }}</div></div>
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
                             <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Release Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.created_at) }}</div></div>
+                        </div>
+
+                        <div class="pr-info-box">
+                            <div class="pr-info-title"><i class="bi bi-info-circle"></i> Information</div>
+                            <div class="pr-info-row"><span>Dibuat</span><span>{{ formatDateTime(viewingPO.created_at) }} oleh {{ viewingPO.created_by || '-' }}</span></div>
                         </div>
 
                         <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Item Barang</label>

@@ -52,13 +52,28 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Bikin nomor PR/PO dinamis, format sama kayak sebelumnya: PREFIX-2026-HHMMSS
-function generateNumber(prefix) {
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    return `${prefix}-2026-${hh}${mm}${ss}`;
+// Bikin nomor PR/PO berdasarkan TANGGAL dibuat (bukan random/jam), format: PREFIX-DDMMYYYY-NN.
+// Contoh: PR-16092026-01, PO-16092026-01.
+//
+// NN di belakang itu nomor urut ke-berapa di tanggal itu -- WAJIB ada soalnya kolom
+// pr_number/po_number itu UNIQUE di database, dan lebih dari 1 PR/PO di hari yang
+// sama itu kejadian normal (bukan edge case), jadi tanggal doang gak cukup.
+//
+// Nomor urutnya digenerate lewat FUNCTION DI DATABASE (generate_doc_number, liat
+// schema.sql / add_soc_audit_fields_migration.sql), bukan dihitung manual di sini.
+// Sengaja gitu soalnya kalo dihitung manual (query COUNT PR hari ini, +1) ada 2 bug:
+// 1. RLS bikin user brand-scoped (AM/SM) cuma "liat" PR/PO brand-nya sendiri pas
+//    query -- jadi Almaz Fried Chicken & Kebuli Abuya yang sama-sama bikin PR
+//    pertama di hari yang sama bakal dapet nomor SAMA (masing-masing ngitung
+//    "punya sendiri" mulai dari 0) terus nabrak pas disimpen.
+// 2. 2 orang submit bebarengan juga bisa ngitung angka final yang sama (race
+//    condition).
+// Function di database gak kena 2 masalah itu (baca/tulis ke tabel counter
+// terpisah yang gak di-RLS per-brand, dan atomik lewat row lock Postgres).
+async function generateNumber(prefix) {
+    const { data, error } = await supabaseClient.rpc('generate_doc_number', { p_prefix: prefix });
+    if (error) throw error;
+    return data;
 }
 
 // Cari kolom di data Excel biarpun beda kapital/spasi/underscore
@@ -292,10 +307,20 @@ const STATUS_OPTIONS = [
     { value: 'Rejected', label: 'Rejected' }
 ];
 
-// Opsi buat dropdown Kategori Pengiriman di form PR
+// Opsi buat dropdown Kategori Pengiriman di form PR. Ini daftar LENGKAPnya (Almaz Fried
+// Chicken pake ini apa adanya) -- Kebuli Abuya di-filter lewat computed shippingCategoryOptions
+// di setup() (cuma nyisain "Direct" doang, soalnya Kebuli Abuya gak pake skema Indirect/SOC).
 const SHIPPING_CATEGORY_OPTIONS = [
     { value: 'Direct', label: 'Direct (Distribution Center)' },
     { value: 'Indirect', label: 'Indirect (Vendor)' }
+];
+
+// Opsi dropdown SOC -- CUMA muncul kalo Kategori Pengiriman = Indirect (khusus Almaz Fried
+// Chicken, soalnya Kebuli Abuya gak punya opsi Indirect sama sekali).
+const SOC_OPTIONS = [
+    { value: 'Iis', label: 'Iis' },
+    { value: 'Dinda', label: 'Dinda' },
+    { value: 'Caca', label: 'Caca' }
 ];
 
 // Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR
@@ -418,7 +443,12 @@ const app = createApp({
 
         // form Buat PR -- gak ada harga/total lagi, item-nya dikumpulin dulu di form.items
         // sebelum di-submit bareng-bareng (baru masuk DB pas tombol Submit diklik)
-        const form = ref({ branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] });
+        const form = ref({ branch_name: '', required_date: '', shipping_category: '', soc: '', notes: '', items: [] });
+        // SOC cuma relevan kalo Kategori Pengiriman = Indirect -- kalo user ganti balik ke
+        // Direct (atau kategori lain), kosongin lagi SOC-nya biar gak ke-submit nyangkut/stale.
+        watch(() => form.value.shipping_category, (val) => {
+            if (val !== 'Indirect') form.value.soc = '';
+        });
         const newItemProductId = ref('');
         // qty defaultnya null (bukan 0) -- kalo di-set 0, input type="number" bakal nampilin
         // angka "0" literal (nutupin placeholder "Jumlah"), jadi keliatan kayak udah keisi
@@ -437,7 +467,7 @@ const app = createApp({
         // form baru (biar gak kebawa data PR yang sebelumnya lagi diisi/dibatalin),
         // dan abis submit sukses.
         const resetPRForm = () => {
-            form.value = { branch_name: '', required_date: '', shipping_category: '', notes: '', items: [] };
+            form.value = { branch_name: '', required_date: '', shipping_category: '', soc: '', notes: '', items: [] };
             newItemProductId.value = '';
             newItemQty.value = null;
             editingFormItemIdx.value = null;
@@ -560,6 +590,16 @@ const app = createApp({
         // brand, data brand yang satunya gak ikut ketarik).
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
+        // Kebuli Abuya gak pake skema Indirect/SOC sama sekali -- jadi dropdown Kategori
+        // Pengiriman-nya di-filter cuma nyisain "Direct". Brand lain (Almaz Fried Chicken)
+        // tetep dapet pilihan lengkap (Direct + Indirect).
+        const shippingCategoryOptions = computed(() => {
+            if (activeBrand.value === 'Kebuli Abuya') {
+                return SHIPPING_CATEGORY_OPTIONS.filter(o => o.value === 'Direct');
+            }
+            return SHIPPING_CATEGORY_OPTIONS;
+        });
+
         // Semua PR/PO di-scope ke activeBrand dulu -- ini yang bikin isi brand lain gak ikut nongol
         const brandPRs = computed(() => {
             if (!activeBrand.value) return prs.value;
@@ -655,6 +695,16 @@ const app = createApp({
             return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         };
 
+        // Sama kayak formatDate, tapi ikut nampilin jam:menit -- dipake di box "Information"
+        // (kapan PR/PO dibuat & diedit).
+        const formatDateTime = (dateStr) => {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+            const timePart = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            return `${datePart}, ${timePart}`;
+        };
+
         // Ambil role + brand user dari tabel user_roles (RLS cuma ngebolehin liat row diri sendiri)
         const fetchRoleAndBrand = async (email) => {
             const { data, error } = await supabaseClient
@@ -726,7 +776,7 @@ const app = createApp({
             try {
                 const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
-                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category)').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, soc)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
                     supabaseClient.from('purchase_request_items').select('*').order('id'),
@@ -808,6 +858,7 @@ const app = createApp({
             if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
             if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
             if (!form.value.shipping_category) { toast('Pilih kategori pengiriman dulu ya.', 'warn'); return; }
+            if (form.value.shipping_category === 'Indirect' && !form.value.soc) { toast('Pilih SOC dulu ya.', 'warn'); return; }
             if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
             try {
                 // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
@@ -815,15 +866,19 @@ const app = createApp({
                 const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
                 const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
 
+                const prNumber = await generateNumber('PR');
+
                 // Bikin dulu PR-nya (tanpa item), .select().single() biar dapet id-nya balik
                 const { data: newPR, error } = await supabaseClient.from('purchase_requests').insert({
-                    pr_number: generateNumber('PR'),
+                    pr_number: prNumber,
                     branch_name: form.value.branch_name,
                     shipping_category: form.value.shipping_category,
+                    soc: form.value.shipping_category === 'Indirect' ? form.value.soc : null,
                     required_date: form.value.required_date || null,
                     notes: form.value.notes,
                     brand: prBrand,
-                    status: 'Pending'
+                    status: 'Pending',
+                    created_by: userEmail.value
                 }).select().single();
 
                 if (error) {
@@ -863,6 +918,17 @@ const app = createApp({
             currentTab.value = 'daftar-pr';
         };
 
+        // "Sentuh" PR induk -- update updated_at/updated_by-nya ke sekarang & user yang lagi
+        // login. Dipanggil abis tiap perubahan ke PR (item ditambah/diubah/dihapus, approve,
+        // reject), biar box "Information" di Detail PR nunjukin siapa & kapan terakhir ngedit.
+        // Silent (gak toast kalo gagal) -- ini metadata pelengkap, bukan aksi utamanya.
+        const touchPR = async (prId) => {
+            await supabaseClient.from('purchase_requests').update({
+                updated_at: new Date().toISOString(),
+                updated_by: userEmail.value
+            }).eq('id', prId);
+        };
+
         // Nambah item baru ke PR yang lagi di-review -- LANGSUNG kesimpen ke DB (auto-save),
         // gak pake tombol "Simpan" terpisah, soalnya PR-nya emang udah ada/tersimpan.
         const addItemToEditingPR = async () => {
@@ -884,6 +950,7 @@ const app = createApp({
             if (error) { toast('Gagal nambah item: ' + error.message, 'error'); return; }
             editPRNewItemProductId.value = '';
             editPRNewItemQty.value = null;
+            await touchPR(editingPR.value.id);
             await fetchData();
         };
 
@@ -892,6 +959,7 @@ const app = createApp({
             const qty = Number(item.qty) || 1;
             const { error } = await supabaseClient.from('purchase_request_items').update({ qty }).eq('id', item.id);
             if (error) toast('Gagal update jumlah: ' + error.message, 'error');
+            if (editingPR.value) await touchPR(editingPR.value.id);
             await fetchData();
         };
 
@@ -899,23 +967,34 @@ const app = createApp({
             if (!(await confirmDialog('Hapus item ini dari PR?', { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
             const { error } = await supabaseClient.from('purchase_request_items').delete().eq('id', itemId);
             if (error) { toast('Gagal hapus item: ' + error.message, 'error'); return; }
+            if (editingPR.value) await touchPR(editingPR.value.id);
             await fetchData();
         };
 
         const approvePR = async (id) => {
             if (!(await confirmDialog('Approve PR ini dan rilis PO?', { confirmLabel: 'Ya, Approve' }))) return;
 
-            const { error: updateError } = await supabaseClient.from('purchase_requests').update({ status: 'Approved' }).eq('id', id);
+            const { error: updateError } = await supabaseClient.from('purchase_requests').update({
+                status: 'Approved',
+                updated_at: new Date().toISOString(),
+                updated_by: userEmail.value
+            }).eq('id', id);
             if (updateError) {
                 toast('Gagal approve PR: ' + updateError.message, 'error');
                 return;
             }
 
-            const { error: poError } = await supabaseClient.from('purchase_orders').insert({
-                po_number: generateNumber('PO'),
-                pr_id: id
-            });
-            if (poError) toast('PR ke-approve, tapi gagal bikin PO: ' + poError.message, 'error');
+            try {
+                const poNumber = await generateNumber('PO');
+                const { error: poError } = await supabaseClient.from('purchase_orders').insert({
+                    po_number: poNumber,
+                    pr_id: id,
+                    created_by: userEmail.value
+                });
+                if (poError) toast('PR ke-approve, tapi gagal bikin PO: ' + poError.message, 'error');
+            } catch (err) {
+                toast('PR ke-approve, tapi gagal bikin PO: ' + err.message, 'error');
+            }
 
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
@@ -924,7 +1003,11 @@ const app = createApp({
 
         const rejectPR = async (id) => {
             if (!(await confirmDialog('Yakin mau menolak PR ini?', { danger: true, confirmLabel: 'Ya, Tolak' }))) return;
-            const { error } = await supabaseClient.from('purchase_requests').update({ status: 'Rejected' }).eq('id', id);
+            const { error } = await supabaseClient.from('purchase_requests').update({
+                status: 'Rejected',
+                updated_at: new Date().toISOString(),
+                updated_by: userEmail.value
+            }).eq('id', id);
             if (error) toast('Gagal menolak PR: ' + error.message, 'error');
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
@@ -1115,7 +1198,7 @@ const app = createApp({
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
             poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
-            SHIPPING_CATEGORY_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
+            SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, SOC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
             openEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
@@ -1126,7 +1209,7 @@ const app = createApp({
             toggleBranchSelect, toggleSelectAllBranches, startEditBranch, cancelEditBranch, saveEditBranch, deleteBranches,
             editingProductId, editProductForm, selectedProductIds, allProductsSelected,
             toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
-            formatRp, formatDate, submitPR, approvePR, rejectPR
+            formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }
 })
