@@ -1,6 +1,47 @@
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
 // ============================================================
+// POPUP NOTIFIKASI CUSTOM -- ganti alert()/confirm() bawaan browser (yang jelek &
+// blocking) sama popup ala app ini sendiri.
+// - toast(message, type) -- ganti alert(). type: 'success' | 'error' | 'warn' | 'info'.
+//   Muncul di kanan-bawah, ilang sendiri, bisa ditutup manual juga.
+// - confirmDialog(message, opts) -- ganti confirm(). Return Promise<boolean>, jadi
+//   PAKE "await" di depannya. opts: { danger: true } buat tombol konfirmasi warna
+//   merah (aksi ngerusak/hapus), confirmLabel buat ganti teks tombolnya
+//   (default "Ya, Lanjutkan").
+// State-nya taro di luar setup() (module-level) biar konsisten satu-satunya di
+// seluruh app, terus di-expose lewat return di setup() biar kepake di template.
+// ============================================================
+const toasts = ref([]);
+let toastSeq = 0;
+function toast(message, type = 'info') {
+    const id = ++toastSeq;
+    toasts.value.push({ id, message, type });
+    setTimeout(() => dismissToast(id), 4000);
+}
+function dismissToast(id) {
+    toasts.value = toasts.value.filter(t => t.id !== id);
+}
+
+const confirmState = ref(null); // { message, danger, confirmLabel, resolve } -- null = lagi gak ada dialog kebuka
+function confirmDialog(message, opts = {}) {
+    return new Promise((resolve) => {
+        confirmState.value = {
+            message,
+            danger: !!opts.danger,
+            confirmLabel: opts.confirmLabel || 'Ya, Lanjutkan',
+            resolve
+        };
+    });
+}
+function resolveConfirm(result) {
+    if (confirmState.value) {
+        confirmState.value.resolve(result);
+        confirmState.value = null;
+    }
+}
+
+// ============================================================
 // KONFIGURASI SUPABASE -- GANTI 2 BARIS INI
 // Ambil dari: Supabase Dashboard > Project Settings > API
 // PAKE "anon" "public" key -- JANGAN PERNAH pake service_role di sini,
@@ -438,13 +479,13 @@ const app = createApp({
 
         // Nambah 1 item ke list form Buat PR (belum masuk DB, baru lokal di browser dulu)
         const addFormItem = () => {
-            if (!newItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
-            if (!newItemQty.value || newItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
+            if (!newItemProductId.value) { toast('Pilih barang dulu ya.', 'warn'); return; }
+            if (!newItemQty.value || newItemQty.value <= 0) { toast('Isi jumlah dulu ya (harus lebih dari 0).', 'warn'); return; }
             const product = masterProducts.value.find(p => p.id === newItemProductId.value);
             if (!product) return;
             const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
             if (form.value.items.some(it => it.product_id === product.id)) {
-                alert('Item ini udah ada di list. Kalo mau ubah jumlahnya, edit langsung item-nya di list bawah.');
+                toast('Item ini udah ada di list. Kalo mau ubah jumlahnya, edit langsung item-nya di list bawah.', 'warn');
                 return;
             }
             form.value.items.push({ product_id: product.id, item_name: displayName, qty: newItemQty.value });
@@ -465,12 +506,12 @@ const app = createApp({
         };
         const cancelEditFormItem = () => { editingFormItemIdx.value = null; };
         const saveEditFormItem = (idx) => {
-            if (!editFormItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
-            if (!editFormItemQty.value || editFormItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
+            if (!editFormItemProductId.value) { toast('Pilih barang dulu ya.', 'warn'); return; }
+            if (!editFormItemQty.value || editFormItemQty.value <= 0) { toast('Isi jumlah dulu ya (harus lebih dari 0).', 'warn'); return; }
             const product = masterProducts.value.find(p => p.id === editFormItemProductId.value);
             if (!product) return;
             const isDuplicate = form.value.items.some((it, i) => i !== idx && it.product_id === product.id);
-            if (isDuplicate) { alert('Barang ini udah ada di item lain di list.'); return; }
+            if (isDuplicate) { toast('Barang ini udah ada di item lain di list.', 'warn'); return; }
             const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
             form.value.items[idx] = { product_id: product.id, item_name: displayName, qty: editFormItemQty.value };
             editingFormItemIdx.value = null;
@@ -713,13 +754,13 @@ const app = createApp({
                 const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
                 if (rows.length === 0) {
-                    alert('File Excel kosong!');
+                    toast('File Excel kosong!', 'warn');
                     return;
                 }
 
                 const nameCol = findCol(rows[0], 'Product Name', 'product_name', 'name', 'nama_produk', 'nama produk');
                 if (!nameCol) {
-                    alert(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
+                    toast(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`, 'error');
                     return;
                 }
                 // Kolom Brand & Unit OPSIONAL -- Brand kosong = shared (keliatan di semua brand).
@@ -737,7 +778,7 @@ const app = createApp({
                     .filter((r) => r.name && r.name.toLowerCase() !== 'nan');
 
                 if (payload.length === 0) {
-                    alert('Gak ada baris valid buat diimport.');
+                    toast('Gak ada baris valid buat diimport.', 'warn');
                     return;
                 }
 
@@ -746,15 +787,15 @@ const app = createApp({
                     .upsert(payload, { onConflict: 'name,unit', ignoreDuplicates: true });
 
                 if (error) {
-                    alert('Gagal upload: ' + error.message);
+                    toast('Gagal upload: ' + error.message, 'error');
                     return;
                 }
 
-                alert(`Berhasil diproses ${payload.length} baris produk!`);
+                toast(`Berhasil diproses ${payload.length} baris produk!`, 'success');
                 fetchData();
             } catch (err) {
                 console.error(err);
-                alert('Gagal memproses file Excel.');
+                toast('Gagal memproses file Excel.', 'error');
             } finally {
                 isLoading.value = false;
                 event.target.value = '';
@@ -764,10 +805,10 @@ const app = createApp({
         const submitPR = async () => {
             // Validasi manual -- dropdown Cabang & Kategori Pengiriman sekarang komponen custom
             // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
-            if (!form.value.branch_name) { alert('Pilih cabang dulu ya.'); return; }
-            if (!form.value.required_date) { alert('Pilih Required Date dulu ya.'); return; }
-            if (!form.value.shipping_category) { alert('Pilih kategori pengiriman dulu ya.'); return; }
-            if (form.value.items.length === 0) { alert('Tambahkan minimal 1 item barang dulu ya.'); return; }
+            if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
+            if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
+            if (!form.value.shipping_category) { toast('Pilih kategori pengiriman dulu ya.', 'warn'); return; }
+            if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
             try {
                 // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
                 // yang bisa akses semua brand tetep ke-tag PR-nya dengan bener)
@@ -786,7 +827,7 @@ const app = createApp({
                 }).select().single();
 
                 if (error) {
-                    alert('Gagal submit PR: ' + error.message);
+                    toast('Gagal submit PR: ' + error.message, 'error');
                     return;
                 }
 
@@ -798,7 +839,7 @@ const app = createApp({
                 }));
                 const { error: itemsError } = await supabaseClient.from('purchase_request_items').insert(itemsPayload);
                 if (itemsError) {
-                    alert('PR kebikin, tapi gagal simpan item-nya: ' + itemsError.message);
+                    toast('PR kebikin, tapi gagal simpan item-nya: ' + itemsError.message, 'error');
                     return;
                 }
 
@@ -806,7 +847,7 @@ const app = createApp({
                 await fetchData();
                 currentTab.value = 'daftar-pr';
             } catch (err) {
-                alert('Gagal submit PR');
+                toast('Gagal submit PR', 'error');
             }
         };
 
@@ -826,13 +867,13 @@ const app = createApp({
         // gak pake tombol "Simpan" terpisah, soalnya PR-nya emang udah ada/tersimpan.
         const addItemToEditingPR = async () => {
             if (!editingPR.value) return;
-            if (!editPRNewItemProductId.value) { alert('Pilih barang dulu ya.'); return; }
-            if (!editPRNewItemQty.value || editPRNewItemQty.value <= 0) { alert('Isi jumlah dulu ya (harus lebih dari 0).'); return; }
+            if (!editPRNewItemProductId.value) { toast('Pilih barang dulu ya.', 'warn'); return; }
+            if (!editPRNewItemQty.value || editPRNewItemQty.value <= 0) { toast('Isi jumlah dulu ya (harus lebih dari 0).', 'warn'); return; }
             const product = masterProducts.value.find(p => p.id === editPRNewItemProductId.value);
             if (!product) return;
             const displayName = product.unit ? `${product.name} (${product.unit})` : product.name;
             if (editPRItems.value.some(it => it.item_name === displayName)) {
-                alert('Item ini udah ada di PR ini.');
+                toast('Item ini udah ada di PR ini.', 'warn');
                 return;
             }
             const { error } = await supabaseClient.from('purchase_request_items').insert({
@@ -840,7 +881,7 @@ const app = createApp({
                 item_name: displayName,
                 qty: editPRNewItemQty.value
             });
-            if (error) { alert('Gagal nambah item: ' + error.message); return; }
+            if (error) { toast('Gagal nambah item: ' + error.message, 'error'); return; }
             editPRNewItemProductId.value = '';
             editPRNewItemQty.value = null;
             await fetchData();
@@ -850,23 +891,23 @@ const app = createApp({
         const updateEditingPRItemQty = async (item) => {
             const qty = Number(item.qty) || 1;
             const { error } = await supabaseClient.from('purchase_request_items').update({ qty }).eq('id', item.id);
-            if (error) alert('Gagal update jumlah: ' + error.message);
+            if (error) toast('Gagal update jumlah: ' + error.message, 'error');
             await fetchData();
         };
 
         const removeItemFromEditingPR = async (itemId) => {
-            if (!confirm('Hapus item ini dari PR?')) return;
+            if (!(await confirmDialog('Hapus item ini dari PR?', { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
             const { error } = await supabaseClient.from('purchase_request_items').delete().eq('id', itemId);
-            if (error) { alert('Gagal hapus item: ' + error.message); return; }
+            if (error) { toast('Gagal hapus item: ' + error.message, 'error'); return; }
             await fetchData();
         };
 
         const approvePR = async (id) => {
-            if (!confirm('Approve PR ini dan rilis PO?')) return;
+            if (!(await confirmDialog('Approve PR ini dan rilis PO?', { confirmLabel: 'Ya, Approve' }))) return;
 
             const { error: updateError } = await supabaseClient.from('purchase_requests').update({ status: 'Approved' }).eq('id', id);
             if (updateError) {
-                alert('Gagal approve PR: ' + updateError.message);
+                toast('Gagal approve PR: ' + updateError.message, 'error');
                 return;
             }
 
@@ -874,7 +915,7 @@ const app = createApp({
                 po_number: generateNumber('PO'),
                 pr_id: id
             });
-            if (poError) alert('PR ke-approve, tapi gagal bikin PO: ' + poError.message);
+            if (poError) toast('PR ke-approve, tapi gagal bikin PO: ' + poError.message, 'error');
 
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
@@ -882,9 +923,9 @@ const app = createApp({
         };
 
         const rejectPR = async (id) => {
-            if (!confirm('Yakin mau menolak PR ini?')) return;
+            if (!(await confirmDialog('Yakin mau menolak PR ini?', { danger: true, confirmLabel: 'Ya, Tolak' }))) return;
             const { error } = await supabaseClient.from('purchase_requests').update({ status: 'Rejected' }).eq('id', id);
-            if (error) alert('Gagal menolak PR: ' + error.message);
+            if (error) toast('Gagal menolak PR: ' + error.message, 'error');
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
             fetchData();
@@ -903,13 +944,13 @@ const app = createApp({
                 const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
                 if (rows.length === 0) {
-                    alert('File Excel kosong!');
+                    toast('File Excel kosong!', 'warn');
                     return;
                 }
 
                 const nameCol = findCol(rows[0], 'Branch Name', 'branch_name');
                 if (!nameCol) {
-                    alert(`Gagal! Kolom nama cabang tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`);
+                    toast(`Gagal! Kolom nama cabang tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`, 'error');
                     return;
                 }
                 const codeCol = findCol(rows[0], 'Branch Code', 'branch_code');
@@ -926,7 +967,7 @@ const app = createApp({
                     .filter((r) => r.branch_name && r.branch_name.toLowerCase() !== 'nan');
 
                 if (payload.length === 0) {
-                    alert('Gak ada baris valid buat diimport.');
+                    toast('Gak ada baris valid buat diimport.', 'warn');
                     return;
                 }
 
@@ -936,15 +977,15 @@ const app = createApp({
                     .upsert(payload, { onConflict: 'branch_name', ignoreDuplicates: true });
 
                 if (error) {
-                    alert('Gagal upload: ' + error.message);
+                    toast('Gagal upload: ' + error.message, 'error');
                     return;
                 }
 
-                alert(`Berhasil diproses ${payload.length} baris cabang!`);
+                toast(`Berhasil diproses ${payload.length} baris cabang!`, 'success');
                 fetchData();
             } catch (err) {
                 console.error(err);
-                alert('Gagal memproses file Excel.');
+                toast('Gagal memproses file Excel.', 'error');
             } finally {
                 isLoading.value = false;
                 event.target.value = '';
@@ -969,7 +1010,7 @@ const app = createApp({
         };
         const cancelEditBranch = () => { editingBranchId.value = null; };
         const saveEditBranch = async (id) => {
-            if (!editBranchForm.value.branch_name.trim()) { alert('Nama cabang gak boleh kosong.'); return; }
+            if (!editBranchForm.value.branch_name.trim()) { toast('Nama cabang gak boleh kosong.', 'warn'); return; }
             const { error } = await supabaseClient
                 .from('master_branches')
                 .update({
@@ -979,7 +1020,7 @@ const app = createApp({
                 })
                 .eq('id', id);
             if (error) {
-                alert('Gagal simpan: ' + error.message);
+                toast('Gagal simpan: ' + error.message, 'error');
                 return;
             }
             editingBranchId.value = null;
@@ -987,10 +1028,10 @@ const app = createApp({
         };
         const deleteBranches = async (ids) => {
             if (ids.length === 0) return;
-            if (!confirm(`Yakin mau hapus ${ids.length} cabang ini? Gak bisa di-undo.`)) return;
+            if (!(await confirmDialog(`Yakin mau hapus ${ids.length} cabang ini? Gak bisa di-undo.`, { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
             const { error } = await supabaseClient.from('master_branches').delete().in('id', ids);
             if (error) {
-                alert('Gagal hapus: ' + error.message);
+                toast('Gagal hapus: ' + error.message, 'error');
                 return;
             }
             selectedBranchIds.value = selectedBranchIds.value.filter(id => !ids.includes(id));
@@ -1015,7 +1056,7 @@ const app = createApp({
         };
         const cancelEditProduct = () => { editingProductId.value = null; };
         const saveEditProduct = async (id) => {
-            if (!editProductForm.value.name.trim()) { alert('Nama produk gak boleh kosong.'); return; }
+            if (!editProductForm.value.name.trim()) { toast('Nama produk gak boleh kosong.', 'warn'); return; }
             const { error } = await supabaseClient
                 .from('master_products')
                 .update({
@@ -1025,7 +1066,7 @@ const app = createApp({
                 })
                 .eq('id', id);
             if (error) {
-                alert('Gagal simpan: ' + error.message);
+                toast('Gagal simpan: ' + error.message, 'error');
                 return;
             }
             editingProductId.value = null;
@@ -1033,10 +1074,10 @@ const app = createApp({
         };
         const deleteProducts = async (ids) => {
             if (ids.length === 0) return;
-            if (!confirm(`Yakin mau hapus ${ids.length} produk ini? Gak bisa di-undo.`)) return;
+            if (!(await confirmDialog(`Yakin mau hapus ${ids.length} produk ini? Gak bisa di-undo.`, { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
             const { error } = await supabaseClient.from('master_products').delete().in('id', ids);
             if (error) {
-                alert('Gagal hapus: ' + error.message);
+                toast('Gagal hapus: ' + error.message, 'error');
                 return;
             }
             selectedProductIds.value = selectedProductIds.value.filter(id => !ids.includes(id));
@@ -1067,6 +1108,7 @@ const app = createApp({
         });
 
         return {
+            toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,

@@ -24,6 +24,37 @@
 <body>
 
 <div id="app">
+    <!-- ============ TOAST NOTIFIKASI (ganti alert()) ============ -->
+    <div class="toast-stack">
+        <TransitionGroup name="toast">
+            <div v-for="t in toasts" :key="t.id" class="toast-item" :class="'toast-' + t.type">
+                <i class="bi" :class="{
+                    'bi-check-circle-fill': t.type === 'success',
+                    'bi-exclamation-triangle-fill': t.type === 'warn',
+                    'bi-x-circle-fill': t.type === 'error',
+                    'bi-info-circle-fill': t.type === 'info'
+                }"></i>
+                <span>{{ t.message }}</span>
+                <button type="button" class="toast-close" @click="dismissToast(t.id)"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </TransitionGroup>
+    </div>
+
+    <!-- ============ CONFIRM MODAL (ganti confirm()) ============ -->
+    <Transition name="modal-pop">
+        <div v-if="confirmState" class="confirm-backdrop" @click.self="resolveConfirm(false)">
+            <div class="confirm-card">
+                <p class="confirm-message">{{ confirmState.message }}</p>
+                <div class="confirm-actions">
+                    <button type="button" class="btn-ghost" @click="resolveConfirm(false)">Batal</button>
+                    <button type="button" :class="confirmState.danger ? 'btn-danger-solid' : 'btn-primary'" @click="resolveConfirm(true)">
+                        {{ confirmState.confirmLabel }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Transition>
+
     <!-- ============ SEBELUM LOGIN ============ -->
     <div v-if="!isLoggedIn">
         <!-- ============ SCREEN PILIH BRAND ============ -->

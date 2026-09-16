@@ -205,6 +205,58 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pop-enter-to, .pop-leave-from{ opacity:1; transform: scale(1); }
 
 /* ============================================================
+   TOAST NOTIFIKASI -- ganti alert() bawaan browser (yang blocking & jelek).
+   Muncul nempel kanan-bawah layar, numpuk ke atas kalo lebih dari 1, ilang
+   sendiri abis beberapa detik (bisa ditutup manual juga pake tombol x).
+   Warna kiri + ikon beda-beda sesuai tipe (success/error/warn/info).
+   ============================================================ */
+.toast-stack{
+    position:fixed; bottom:24px; right:24px; z-index:1000; display:flex; flex-direction:column;
+    gap:10px; width:min(360px, calc(100vw - 32px)); pointer-events:none;
+}
+.toast-item{
+    display:flex; align-items:flex-start; gap:10px; background:var(--surface-1); border-radius:12px;
+    box-shadow:var(--shadow); padding:13px 14px; font-size:13.5px; font-weight:500; color:var(--ink);
+    border-left:4px solid var(--primary); pointer-events:auto;
+}
+.toast-item i{ font-size:16px; flex-shrink:0; margin-top:1px; color:var(--primary); }
+.toast-item span{ flex:1 1 auto; line-height:1.45; }
+.toast-close{ background:transparent; border:none; color:var(--muted); cursor:pointer; padding:2px; flex-shrink:0; font-size:12px; line-height:1; }
+.toast-close:hover{ color:var(--ink); }
+.toast-item.toast-success{ border-left-color:var(--success); }
+.toast-item.toast-success i{ color:var(--success); }
+.toast-item.toast-error{ border-left-color:var(--danger); }
+.toast-item.toast-error i{ color:var(--danger); }
+.toast-item.toast-warn{ border-left-color:var(--warn); }
+.toast-item.toast-warn i{ color:var(--warn); }
+.toast-item.toast-info{ border-left-color:var(--primary); }
+
+.toast-enter-active, .toast-leave-active{ transition: opacity .22s ease, transform .22s ease; }
+.toast-enter-from, .toast-leave-to{ opacity:0; transform: translateX(30px); }
+.toast-move{ transition: transform .22s ease; }
+
+/* ============================================================
+   CONFIRM MODAL -- ganti confirm() bawaan browser. Overlay gelap di tengah
+   layar + card kecil, tombol Batal (ghost) & konfirmasi (merah kalo aksi
+   ngerusak/hapus, biru kalo aksi biasa kayak Approve).
+   ============================================================ */
+.confirm-backdrop{
+    position:fixed; inset:0; background:rgba(23,33,58,.45); z-index:1001; display:flex;
+    align-items:center; justify-content:center; padding:20px;
+}
+.confirm-card{
+    background:var(--surface-1); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:26px 26px 20px; max-width:380px; width:100%;
+}
+.confirm-message{ font-size:14.5px; font-weight:600; color:var(--ink); line-height:1.5; margin:0 0 22px; }
+.confirm-actions{ display:flex; justify-content:flex-end; gap:10px; }
+
+.modal-pop-enter-active, .modal-pop-leave-active{ transition: opacity .18s ease; }
+.modal-pop-enter-from, .modal-pop-leave-to{ opacity:0; }
+.modal-pop-enter-active .confirm-card, .modal-pop-leave-active .confirm-card{ transition: transform .18s ease; }
+.modal-pop-enter-from .confirm-card, .modal-pop-leave-to .confirm-card{ transform: scale(.95); }
+
+/* ============================================================
    PURCHASE REQUEST -- form Buat PR & layar Detail/Edit PR.
    Container-nya dibikin murni CSS grid sendiri (bukan .row/.col-md-* Bootstrap),
    soalnya grid Bootstrap punya negative margin yang ketutupan/kepotong sama
