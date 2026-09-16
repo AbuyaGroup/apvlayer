@@ -169,6 +169,11 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .table-scroll{ max-height: 460px; overflow-y: auto; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }
 
+/* Header kolom tabel yang bisa diklik buat sort (Daftar PR & Daftar PO) */
+.sortable-th{ cursor:pointer; user-select:none; white-space:nowrap; transition:color .15s ease; }
+.sortable-th:hover{ color:var(--primary); }
+.sortable-th i{ margin-left:5px; font-size:10px; vertical-align:1px; }
+
 /* Dropdown custom (SearchableSelect) -- pengganti <select> biasa, bisa di-search & scroll */
 .ss-wrap{ position:relative; }
 .ss-control{

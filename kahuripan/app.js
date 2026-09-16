@@ -202,6 +202,32 @@ function syncFlatpickrWidth(instance, boxEl) {
             const el = instance.calendarContainer.querySelector(sel);
             if (el) { el.style.width = px; el.style.minWidth = px; el.style.maxWidth = px; }
         });
+    // flatpickr udah nentuin posisi kalender SEBELUM kita timpa lebarnya di atas -- jadi kalo
+    // lebar box beda dari lebar default kalender, posisi awal (pas pertama kali buka) keitung
+    // pake lebar LAMA dan kalender keliatan geser dikit ke kiri. Setelah lebar ditimpa, suruh
+    // flatpickr itung ulang posisinya pake lebar yang udah bener -- ini yang bikin klik pertama
+    // sekarang langsung bener (sebelumnya baru bener pas klik kedua, soalnya browser "kebetulan"
+    // udah inget lebar barunya dari kalkulasi klik pertama).
+    if (typeof instance._positionCalendar === 'function') {
+        instance._positionCalendar();
+    }
+}
+
+// Kalender flatpickr defaultnya selalu nampilin 6 baris (42 sel) biar tingginya konsisten tiap
+// bulan -- kadang baris TERAKHIR isinya full tanggal bulan BERIKUTNYA doang (padding doang, gak
+// ada gunanya) yang bikin kalender keliatan kepanjangan ke bawah. Baris itu kita sembunyiin, TAPI
+// cuma kalo semua 7 sel di baris itu emang punya class nextMonthDay -- kalo ada satu aja tanggal
+// bulan berjalan yang nyempil di baris ke-6 itu (bulan yang tanggal terakhirnya jatuh di baris
+// itu), baris itu TETEP ditampilin biar tanggalnya gak ilang.
+function trimTrailingWeek(instance) {
+    if (!instance || !instance.calendarContainer) return;
+    const dayContainer = instance.calendarContainer.querySelector('.dayContainer');
+    if (!dayContainer) return;
+    const days = dayContainer.querySelectorAll('.flatpickr-day');
+    if (days.length < 42) return; // gak sampe 6 baris, gak ada yang perlu disembunyiin
+    const lastRow = Array.from(days).slice(35, 42);
+    const allNextMonth = lastRow.length === 7 && lastRow.every(d => d.classList.contains('nextMonthDay'));
+    lastRow.forEach(d => { d.style.display = allNextMonth ? 'none' : ''; });
 }
 
 // ============================================================
@@ -235,8 +261,10 @@ const DateRangeFilter = {
                 dateFormat: 'd-m-Y',
                 showMonths: 1, // 1 bulan aja -- 2 bulan kegedean di layar kecil
                 positionElement: wrapEl.value, // posisi kalender ngikutin box bungkusnya (bukan cuma <input>-nya), biar nempel pas di bawah box & rata kiri-kanan
-                onReady: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
-                onOpen: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
+                onReady: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onOpen: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onMonthChange: (sd, ds, instance) => trimTrailingWeek(instance),
+                onYearChange: (sd, ds, instance) => trimTrailingWeek(instance),
                 onChange: (selectedDates) => {
                     if (selectedDates.length === 2) {
                         emit('update:modelValue', { from: dateToISO(selectedDates[0]), to: dateToISO(selectedDates[1]) });
@@ -286,8 +314,10 @@ const DatePickerField = {
                 dateFormat: 'd-m-Y',
                 defaultDate: props.modelValue || undefined,
                 positionElement: wrapEl.value,
-                onReady: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
-                onOpen: (sd, ds, instance) => syncFlatpickrWidth(instance, wrapEl.value),
+                onReady: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onOpen: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onMonthChange: (sd, ds, instance) => trimTrailingWeek(instance),
+                onYearChange: (sd, ds, instance) => trimTrailingWeek(instance),
                 onChange: (selectedDates) => {
                     emit('update:modelValue', selectedDates.length ? dateToISO(selectedDates[0]) : '');
                 }
@@ -309,15 +339,15 @@ const STATUS_OPTIONS = [
 
 // Opsi buat dropdown Kategori Pengiriman di form PR. Ini daftar LENGKAPnya (Almaz Fried
 // Chicken pake ini apa adanya) -- Kebuli Abuya di-filter lewat computed shippingCategoryOptions
-// di setup() (cuma nyisain "Direct" doang, soalnya Kebuli Abuya gak pake skema Indirect/SOC).
+// di setup() (cuma nyisain "Direct" doang, soalnya Kebuli Abuya gak pake skema Indirect/PIC).
 const SHIPPING_CATEGORY_OPTIONS = [
     { value: 'Direct', label: 'Direct (Distribution Center)' },
     { value: 'Indirect', label: 'Indirect (Vendor)' }
 ];
 
-// Opsi dropdown SOC -- CUMA muncul kalo Kategori Pengiriman = Indirect (khusus Almaz Fried
+// Opsi dropdown PIC -- CUMA muncul kalo Kategori Pengiriman = Indirect (khusus Almaz Fried
 // Chicken, soalnya Kebuli Abuya gak punya opsi Indirect sama sekali).
-const SOC_OPTIONS = [
+const PIC_OPTIONS = [
     { value: 'Iis', label: 'Iis' },
     { value: 'Dinda', label: 'Dinda' },
     { value: 'Caca', label: 'Caca' }
@@ -443,11 +473,11 @@ const app = createApp({
 
         // form Buat PR -- gak ada harga/total lagi, item-nya dikumpulin dulu di form.items
         // sebelum di-submit bareng-bareng (baru masuk DB pas tombol Submit diklik)
-        const form = ref({ branch_name: '', required_date: '', shipping_category: '', soc: '', notes: '', items: [] });
-        // SOC cuma relevan kalo Kategori Pengiriman = Indirect -- kalo user ganti balik ke
-        // Direct (atau kategori lain), kosongin lagi SOC-nya biar gak ke-submit nyangkut/stale.
+        const form = ref({ branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] });
+        // PIC cuma relevan kalo Kategori Pengiriman = Indirect -- kalo user ganti balik ke
+        // Direct (atau kategori lain), kosongin lagi PIC-nya biar gak ke-submit nyangkut/stale.
         watch(() => form.value.shipping_category, (val) => {
-            if (val !== 'Indirect') form.value.soc = '';
+            if (val !== 'Indirect') form.value.pic = '';
         });
         const newItemProductId = ref('');
         // qty defaultnya null (bukan 0) -- kalo di-set 0, input type="number" bakal nampilin
@@ -467,7 +497,7 @@ const app = createApp({
         // form baru (biar gak kebawa data PR yang sebelumnya lagi diisi/dibatalin),
         // dan abis submit sukses.
         const resetPRForm = () => {
-            form.value = { branch_name: '', required_date: '', shipping_category: '', soc: '', notes: '', items: [] };
+            form.value = { branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] };
             newItemProductId.value = '';
             newItemQty.value = null;
             editingFormItemIdx.value = null;
@@ -590,7 +620,7 @@ const app = createApp({
         // brand, data brand yang satunya gak ikut ketarik).
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
-        // Kebuli Abuya gak pake skema Indirect/SOC sama sekali -- jadi dropdown Kategori
+        // Kebuli Abuya gak pake skema Indirect/PIC sama sekali -- jadi dropdown Kategori
         // Pengiriman-nya di-filter cuma nyisain "Direct". Brand lain (Almaz Fried Chicken)
         // tetep dapet pilihan lengkap (Direct + Indirect).
         const shippingCategoryOptions = computed(() => {
@@ -611,6 +641,41 @@ const app = createApp({
         });
 
         const pendingPRs = computed(() => brandPRs.value.filter(pr => pr.status === 'Pending'));
+
+        // Sort state buat tabel Daftar PR & Daftar PO. Klik header sekali = urut naik (asc),
+        // klik lagi di kolom yang sama = kebalik (desc), klik kolom lain = pindah ke kolom itu (asc).
+        const prSortField = ref('created_at');
+        const prSortDir = ref('desc');
+        const poSortField = ref('created_at');
+        const poSortDir = ref('desc');
+        const toggleSortPR = (field) => {
+            if (prSortField.value === field) {
+                prSortDir.value = prSortDir.value === 'asc' ? 'desc' : 'asc';
+            } else {
+                prSortField.value = field;
+                prSortDir.value = 'asc';
+            }
+        };
+        const toggleSortPO = (field) => {
+            if (poSortField.value === field) {
+                poSortDir.value = poSortDir.value === 'asc' ? 'desc' : 'asc';
+            } else {
+                poSortField.value = field;
+                poSortDir.value = 'asc';
+            }
+        };
+        // Comparator generik: string di-lowercase biar A-Z gak beda sama a-z, angka/tanggal
+        // (string ISO) langsung bisa dibandingin langsung.
+        const compareSortVal = (a, b) => {
+            if (a === null || a === undefined || a === '') a = '';
+            if (b === null || b === undefined || b === '') b = '';
+            if (typeof a === 'string') a = a.toLowerCase();
+            if (typeof b === 'string') b = b.toLowerCase();
+            if (a < b) return -1;
+            if (a > b) return 1;
+            return 0;
+        };
+
         const filteredPRs = computed(() => {
             let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
@@ -624,11 +689,18 @@ const app = createApp({
                     return String(raw || '').toLowerCase().includes(query);
                 });
             }
+            const field = prSortField.value;
+            const dir = prSortDir.value === 'asc' ? 1 : -1;
+            result = [...result].sort((a, b) => compareSortVal(a[field], b[field]) * dir);
             return result;
         });
 
         // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Branch/Shipping/PR Reference-nya
         // ngikut PR induk (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
+        const getPOSortVal = (po, field) => {
+            if (field === 'po_number' || field === 'created_at') return po[field];
+            return po.purchase_requests?.[field];
+        };
         const filteredPOs = computed(() => {
             let result = brandPOs.value;
             if (poDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateRange.value.from);
@@ -642,6 +714,9 @@ const app = createApp({
                     return String(raw || '').toLowerCase().includes(query);
                 });
             }
+            const field = poSortField.value;
+            const dir = poSortDir.value === 'asc' ? 1 : -1;
+            result = [...result].sort((a, b) => compareSortVal(getPOSortVal(a, field), getPOSortVal(b, field)) * dir);
             return result;
         });
 
@@ -776,7 +851,7 @@ const app = createApp({
             try {
                 const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
-                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, soc)').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, pic)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
                     supabaseClient.from('purchase_request_items').select('*').order('id'),
@@ -858,7 +933,7 @@ const app = createApp({
             if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
             if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
             if (!form.value.shipping_category) { toast('Pilih kategori pengiriman dulu ya.', 'warn'); return; }
-            if (form.value.shipping_category === 'Indirect' && !form.value.soc) { toast('Pilih SOC dulu ya.', 'warn'); return; }
+            if (form.value.shipping_category === 'Indirect' && !form.value.pic) { toast('Pilih PIC dulu ya.', 'warn'); return; }
             if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
             try {
                 // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
@@ -873,7 +948,7 @@ const app = createApp({
                     pr_number: prNumber,
                     branch_name: form.value.branch_name,
                     shipping_category: form.value.shipping_category,
-                    soc: form.value.shipping_category === 'Indirect' ? form.value.soc : null,
+                    pic: form.value.shipping_category === 'Indirect' ? form.value.pic : null,
                     required_date: form.value.required_date || null,
                     notes: form.value.notes,
                     brand: prBrand,
@@ -1195,10 +1270,11 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
+            prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
             poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
-            SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, SOC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
+            SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, PIC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
             openEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
