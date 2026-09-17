@@ -111,7 +111,12 @@ const SearchableSelect = {
     props: {
         modelValue: { default: '' },
         options: { type: Array, default: () => [] },
-        placeholder: { type: String, default: '-- Pilih --' }
+        placeholder: { type: String, default: '-- Pilih --' },
+        // Searchbar internal (ketik buat nyaring opsi) DEFAULT-nya mati -- kebanyakan dropdown di
+        // app ini opsinya dikit/fixed (Status, Shipping, PIC, dst), jadi searchbar cuma nambah
+        // langkah. Cuma dropdown yang opsinya bisa banyak/panjang (Branch, Barang/Product) yang
+        // nyalain ini lewat prop :searchable="true".
+        searchable: { type: Boolean, default: false }
     },
     emits: ['update:modelValue'],
     template: `
@@ -123,7 +128,7 @@ const SearchableSelect = {
             </div>
             <Transition name="pop">
                 <div v-if="isOpen" class="ss-panel">
-                    <div class="ss-search" @click.stop>
+                    <div v-if="searchable" class="ss-search" @click.stop>
                         <i class="bi bi-search"></i>
                         <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
                     </div>
@@ -150,7 +155,7 @@ const SearchableSelect = {
         });
 
         const filteredOptions = computed(() => {
-            if (!searchQuery.value) return props.options;
+            if (!props.searchable || !searchQuery.value) return props.options;
             const q = searchQuery.value.toLowerCase();
             return props.options.filter(o => String(o.label).toLowerCase().includes(q));
         });
@@ -158,7 +163,7 @@ const SearchableSelect = {
         const closeDropdown = () => { isOpen.value = false; };
         const toggleOpen = () => {
             isOpen.value = !isOpen.value;
-            if (isOpen.value) {
+            if (isOpen.value && props.searchable) {
                 searchQuery.value = '';
                 nextTick(() => searchInput.value && searchInput.value.focus());
             }
@@ -369,15 +374,22 @@ const PIC_OPTIONS = [
     { value: 'Caca', label: 'Caca' }
 ];
 
-// Sama kayak PIC_OPTIONS, tapi buat dropdown FILTER (Daftar PR & Daftar PO) -- ada tambahan opsi
-// "All PIC" di paling atas biar bisa direset ke gak difilter sama sekali.
-const PIC_FILTER_OPTIONS = [{ value: '', label: 'All PIC' }, ...PIC_OPTIONS];
+// Dropdown FILTER Kategori Pengiriman (Daftar PR & Daftar PO) -- fixed 2 opsi + "All Shipping"
+// biar bisa direset ke gak difilter sama sekali. Beda sama SHIPPING_CATEGORY_OPTIONS yang label-nya
+// lebih panjang (dipake di form Buat PR) -- di sini sengaja label-nya diringkes.
+const SHIPPING_FILTER_OPTIONS = [
+    { value: '', label: 'All Shipping' },
+    { value: 'Direct', label: 'Direct' },
+    { value: 'Indirect', label: 'Indirect' }
+];
 
-// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR
+// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search (manual ketik di
+// searchbox sampingnya) di Daftar PR. PIC dicari lewat sini (bukan dropdown filter fixed-opsi
+// terpisah) soalnya nama PIC bisa macem-macem/nambah kapan aja, jadi lebih fleksibel ketik manual.
 const PR_SEARCH_FIELDS = [
     { value: 'pr_number', label: 'Request Number' },
     { value: 'branch_name', label: 'Branch' },
-    { value: 'shipping_category', label: 'Shipping' },
+    { value: 'pic', label: 'PIC' },
     { value: 'required_date', label: 'Required Date' },
     { value: 'notes', label: 'Notes' }
 ];
@@ -387,7 +399,7 @@ const PO_SEARCH_FIELDS = [
     { value: 'po_number', label: 'PO Number' },
     { value: 'pr_number', label: 'PR Reference' },
     { value: 'branch_name', label: 'Branch' },
-    { value: 'shipping_category', label: 'Shipping' }
+    { value: 'pic', label: 'PIC' }
 ];
 
 const app = createApp({
@@ -535,7 +547,7 @@ const app = createApp({
 
         const searchQuery = ref('');
         const filterStatus = ref('');
-        const prFilterPic = ref(''); // filter dropdown PIC di Daftar PR ('' = semua PIC)
+        const prFilterShipping = ref(''); // filter dropdown Shipping di Daftar PR ('' = semua)
         // Search Daftar PR: dropdown "Select Target Column" (kolom mana yang di-search) + range tanggal Required Date
         const prSearchField = ref('pr_number');
         const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
@@ -545,7 +557,7 @@ const app = createApp({
         const poSearchField = ref('po_number');
         const poSearchFieldLabel = computed(() => (PO_SEARCH_FIELDS.find(f => f.value === poSearchField.value) || {}).label || '');
         const poDateRange = ref({ from: '', to: '' });
-        const poFilterPic = ref(''); // filter dropdown PIC di Daftar PO ('' = semua PIC)
+        const poFilterShipping = ref(''); // filter dropdown Shipping di Daftar PO ('' = semua)
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
 
@@ -701,7 +713,7 @@ const app = createApp({
         const filteredPRs = computed(() => {
             let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
-            if (prFilterPic.value) result = result.filter(pr => pr.pic === prFilterPic.value);
+            if (prFilterShipping.value) result = result.filter(pr => pr.shipping_category === prFilterShipping.value);
             if (prDateRange.value.from) result = result.filter(pr => pr.required_date && pr.required_date >= prDateRange.value.from);
             if (prDateRange.value.to) result = result.filter(pr => pr.required_date && pr.required_date <= prDateRange.value.to);
             if (searchQuery.value) {
@@ -726,7 +738,7 @@ const app = createApp({
         };
         const filteredPOs = computed(() => {
             let result = brandPOs.value;
-            if (poFilterPic.value) result = result.filter(po => po.purchase_requests?.pic === poFilterPic.value);
+            if (poFilterShipping.value) result = result.filter(po => po.purchase_requests?.shipping_category === poFilterShipping.value);
             if (poDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateRange.value.from);
             if (poDateRange.value.to) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateRange.value.to);
             if (poSearchQuery.value) {
@@ -1331,7 +1343,7 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
-            prFilterPic, poFilterPic, PIC_FILTER_OPTIONS,
+            prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,
             prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
             poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,

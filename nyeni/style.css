@@ -175,7 +175,9 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .sortable-th:hover{ color:var(--primary); }
 .sortable-th i{ margin-left:5px; font-size:10px; vertical-align:1px; }
 
-/* Dropdown custom (SearchableSelect) -- pengganti <select> biasa, bisa di-search & scroll */
+/* Dropdown custom (SearchableSelect) -- pengganti <select> biasa. Searchbar internal (.ss-search)
+   sekarang OPSIONAL lewat prop :searchable="true" -- cuma dropdown Branch & Barang/Product yang
+   makein (opsinya bisa banyak), dropdown lain (Status, Shipping, PIC, dst) polos tanpa searchbar. */
 .ss-wrap{ position:relative; }
 .ss-control{
     width:100%; border:1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px;

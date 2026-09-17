@@ -323,10 +323,10 @@
                         <form @submit.prevent="submitPR">
                             <div class="pr-form-grid">
                                 <div class="field"><label>Branch Name</label>
-                                    <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --"></searchable-select>
+                                    <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --" :searchable="true"></searchable-select>
                                 </div>
                                 <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
-                                <div class="field"><label>Kategori Pengiriman</label>
+                                <div class="field"><label>Shipping Category</label>
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
                                 <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
@@ -337,7 +337,7 @@
                             <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Nama Barang</label>
                             <div class="pr-item-adder">
                                 <div class="field" style="margin-bottom:0;">
-                                    <searchable-select v-model="newItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                                    <searchable-select v-model="newItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
                                 </div>
                                 <div class="field qty-field" style="margin-bottom:0;">
                                     <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
@@ -351,7 +351,7 @@
                                     <!-- MODE EDIT -->
                                     <div v-if="editingFormItemIdx === idx" class="pr-item-row pr-item-row-edit">
                                         <div class="field" style="margin-bottom:0; flex:1 1 auto;">
-                                            <searchable-select v-model="editFormItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                                            <searchable-select v-model="editFormItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
                                         </div>
                                         <div class="field qty-field" style="margin-bottom:0;">
                                             <input type="number" v-model.number="editFormItemQty" min="1" placeholder="Jumlah">
@@ -385,7 +385,7 @@
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
                             <div style="min-width: 140px;"><searchable-select v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="All Status"></searchable-select></div>
-                            <div style="min-width: 140px;"><searchable-select v-model="prFilterPic" :options="PIC_FILTER_OPTIONS" placeholder="All PIC"></searchable-select></div>
+                            <div style="min-width: 140px;"><searchable-select v-model="prFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="prSearchField" :options="PR_SEARCH_FIELDS"></searchable-select></div>
                                 <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
@@ -437,7 +437,7 @@
                     <div class="pr-form-card">
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
-                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
@@ -454,7 +454,7 @@
 
                         <div v-if="canEditPR" class="pr-item-adder">
                             <div class="field" style="margin-bottom:0;">
-                                <searchable-select v-model="editPRNewItemProductId" :options="productOptions" placeholder="-- Pilih Barang --"></searchable-select>
+                                <searchable-select v-model="editPRNewItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
                             </div>
                             <div class="field qty-field" style="margin-bottom:0;">
                                 <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
@@ -486,7 +486,7 @@
                     <h2 style="margin-bottom: 24px;">Purchase Order</h2>
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
-                            <div style="min-width: 140px;"><searchable-select v-model="poFilterPic" :options="PIC_FILTER_OPTIONS" placeholder="All PIC"></searchable-select></div>
+                            <div style="min-width: 140px;"><searchable-select v-model="poFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="poSearchField" :options="PO_SEARCH_FIELDS"></searchable-select></div>
                                 <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>
@@ -531,7 +531,7 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">PR Reference</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pr_number || '-' }}</div></div>
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
-                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.purchase_requests?.required_date) }}</div></div>
                         </div>
