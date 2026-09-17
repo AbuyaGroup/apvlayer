@@ -385,6 +385,7 @@
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
                             <div style="min-width: 140px;"><searchable-select v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="All Status"></searchable-select></div>
+                            <div style="min-width: 140px;"><searchable-select v-model="prFilterPic" :options="PIC_FILTER_OPTIONS" placeholder="All PIC"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="prSearchField" :options="PR_SEARCH_FIELDS"></searchable-select></div>
                                 <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
@@ -485,6 +486,7 @@
                     <h2 style="margin-bottom: 24px;">Purchase Order</h2>
                     <div class="produk-toolbar">
                         <div class="produk-toolbar-search">
+                            <div style="min-width: 140px;"><searchable-select v-model="poFilterPic" :options="PIC_FILTER_OPTIONS" placeholder="All PIC"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="poSearchField" :options="PO_SEARCH_FIELDS"></searchable-select></div>
                                 <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>

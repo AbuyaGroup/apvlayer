@@ -187,6 +187,21 @@ function dateToISO(d) {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+// "Hari ini" versi WIB (UTC+7, gak ada DST) -- BUKAN versi timezone device yang lagi buka app.
+// Indonesia punya 3 zona waktu (WIB/WITA/WIT, beda 1-2 jam), jadi kalo ngandelin new Date() polos
+// (yang notoin timezone si DEVICE), AM/Master yang buka app dari WITA/WIT bisa dapet "hari ini"
+// yang beda sama pg_cron di database (yang eksplisit WIB) -- bisa ketuker expire PR-nya beda 1-2
+// jam tergantung siapa yang duluan ngecek. Dipakein sebagai "jam acuan perusahaan" yang sama biar
+// konsisten, gak peduli device-nya lagi di zona jam mana. Trik-nya: Date.now() itu UTC epoch (gak
+// kepengaruh timezone device), tinggal digeser +7 jam terus dibaca komponen UTC-nya balik.
+function todayWIB() {
+    const wib = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const yyyy = wib.getUTCFullYear();
+    const mm = String(wib.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(wib.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 // Paksa lebar kalender flatpickr SAMA PERSIS kayak lebar box pemicunya (boxEl),
 // biar gak ada kalender yang lebih lebar/sempit dari box-nya kayak yang dikeluhin.
 // flatpickr nge-set lebar beberapa elemen internalnya sendiri (inline style), jadi
@@ -334,7 +349,8 @@ const STATUS_OPTIONS = [
     { value: '', label: 'All Status' },
     { value: 'Pending', label: 'Pending' },
     { value: 'Approved', label: 'Approved' },
-    { value: 'Rejected', label: 'Rejected' }
+    { value: 'Rejected', label: 'Rejected' },
+    { value: 'Expired', label: 'Expired' }
 ];
 
 // Opsi buat dropdown Kategori Pengiriman di form PR. Ini daftar LENGKAPnya (Almaz Fried
@@ -352,6 +368,10 @@ const PIC_OPTIONS = [
     { value: 'Dinda', label: 'Dinda' },
     { value: 'Caca', label: 'Caca' }
 ];
+
+// Sama kayak PIC_OPTIONS, tapi buat dropdown FILTER (Daftar PR & Daftar PO) -- ada tambahan opsi
+// "All PIC" di paling atas biar bisa direset ke gak difilter sama sekali.
+const PIC_FILTER_OPTIONS = [{ value: '', label: 'All PIC' }, ...PIC_OPTIONS];
 
 // Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR
 const PR_SEARCH_FIELDS = [
@@ -515,6 +535,7 @@ const app = createApp({
 
         const searchQuery = ref('');
         const filterStatus = ref('');
+        const prFilterPic = ref(''); // filter dropdown PIC di Daftar PR ('' = semua PIC)
         // Search Daftar PR: dropdown "Select Target Column" (kolom mana yang di-search) + range tanggal Required Date
         const prSearchField = ref('pr_number');
         const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
@@ -524,6 +545,7 @@ const app = createApp({
         const poSearchField = ref('po_number');
         const poSearchFieldLabel = computed(() => (PO_SEARCH_FIELDS.find(f => f.value === poSearchField.value) || {}).label || '');
         const poDateRange = ref({ from: '', to: '' });
+        const poFilterPic = ref(''); // filter dropdown PIC di Daftar PO ('' = semua PIC)
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
 
@@ -679,6 +701,7 @@ const app = createApp({
         const filteredPRs = computed(() => {
             let result = brandPRs.value;
             if (filterStatus.value) result = result.filter(pr => pr.status === filterStatus.value);
+            if (prFilterPic.value) result = result.filter(pr => pr.pic === prFilterPic.value);
             if (prDateRange.value.from) result = result.filter(pr => pr.required_date && pr.required_date >= prDateRange.value.from);
             if (prDateRange.value.to) result = result.filter(pr => pr.required_date && pr.required_date <= prDateRange.value.to);
             if (searchQuery.value) {
@@ -703,6 +726,7 @@ const app = createApp({
         };
         const filteredPOs = computed(() => {
             let result = brandPOs.value;
+            if (poFilterPic.value) result = result.filter(po => po.purchase_requests?.pic === poFilterPic.value);
             if (poDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateRange.value.from);
             if (poDateRange.value.to) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateRange.value.to);
             if (poSearchQuery.value) {
@@ -847,6 +871,37 @@ const app = createApp({
             try { localStorage.removeItem('lastActiveTab'); } catch (e) {}
         };
 
+        // PR yang statusnya masih Pending tapi udah lewat batas waktu take action otomatis
+        // di-expire jadi status "Expired". Batasnya: AM/Master masih bisa Approve/Reject sampe
+        // H-1 dari Required Date (misal Required Date tanggal 18, masih bisa di-take action
+        // sepanjang tanggal 17 -- begitu ganti hari/masuk tanggal 18, udah kelewatan). Jadi
+        // aturannya: begitu tanggal HARI INI udah >= Required Date-nya sendiri (bukan H-1-nya),
+        // dan PR-nya masih Pending, otomatis Expired.
+        // PR yang Expired otomatis gak bisa di-approve/reject lagi (tombolnya ilang sendiri,
+        // liat computed canEditPR yang syaratnya status === 'Pending') dan otomatis gak akan
+        // pernah jadi PO (PO cuma kebikin pas approvePR() jalan, dan itu gak bisa lagi soalnya
+        // PR-nya udah bukan Pending).
+        // Dicek tiap kali fetchData() jalan (abis login & abis ada perubahan data) -- ini
+        // lapisan KEDUA doang buat reaksi cepet pas ada yang buka app; lapisan utamanya sekarang
+        // pg_cron di database (jalan sendiri tiap jam, gak nunggu ada yang buka app). Pake
+        // todayWIB() (bukan new Date() polos) biar "hari ini"-nya konsisten sama pg_cron,
+        // gak peduli device yang buka app lagi di WIB/WITA/WIT.
+        const expireOverduePRs = async () => {
+            const todayStr = todayWIB();
+            const overdue = prs.value.filter(pr => pr.status === 'Pending' && pr.required_date && pr.required_date <= todayStr);
+            if (overdue.length === 0) return;
+            const { error } = await supabaseClient.from('purchase_requests').update({
+                status: 'Expired',
+                updated_at: new Date().toISOString(),
+                updated_by: 'system (auto-expired)'
+            }).in('id', overdue.map(pr => pr.id));
+            if (error) {
+                console.error('Gagal auto-expire PR:', error);
+                return;
+            }
+            overdue.forEach(pr => { pr.status = 'Expired'; }); // optimistic update biar langsung keliatan gak usah nunggu refetch
+        };
+
         const fetchData = async () => {
             try {
                 const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
@@ -861,6 +916,12 @@ const app = createApp({
                 masterBranches.value = branchRes.data || [];
                 masterProducts.value = productRes.data || [];
                 prItems.value = itemRes.data || [];
+
+                // Cuma AM/Master yang punya hak UPDATE status PR di RLS -- SM gak perlu/gak
+                // bisa nge-trigger ini (update-nya bakal ke-block RLS aja kalo dipaksa).
+                if (userRole.value === 'AM' || userRole.value === 'Master') {
+                    await expireOverduePRs();
+                }
             } catch (err) {
                 console.error('Gagal ambil data:', err);
             }
@@ -1270,6 +1331,7 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
+            prFilterPic, poFilterPic, PIC_FILTER_OPTIONS,
             prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
             poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,

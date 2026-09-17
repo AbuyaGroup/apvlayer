@@ -161,6 +161,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .status-badge.pending{ background:var(--warn-soft); color:var(--warn); }
 .status-badge.approved{ background:var(--success-soft); color:var(--success); }
 .status-badge.rejected{ background:var(--danger-soft); color:var(--danger); }
+.status-badge.expired{ background:#eef1f5; color:#5d6b83; }
 .empty-state{ text-align:center; padding:68px 20px; border:1px dashed #ccd7e8; border-radius:18px; background:rgba(255,255,255,.6); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
