@@ -326,7 +326,7 @@
                                     <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --" :searchable="true"></searchable-select>
                                 </div>
                                 <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
-                                <div class="field"><label>Shipping Category</label>
+                                <div class="field"><label>Kategori Pengiriman</label>
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
                                 <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
@@ -437,7 +437,7 @@
                     <div class="pr-form-card">
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
-                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
@@ -531,7 +531,7 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">PR Reference</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pr_number || '-' }}</div></div>
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
-                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.purchase_requests?.required_date) }}</div></div>
                         </div>
@@ -556,10 +556,65 @@
                      misal 'edit-pr' abis di-refresh tapi editingPR-nya udah null) -->
                 <div v-else key="dashboard">
                     <h2 style="margin-bottom: 24px;">Dashboard Overview</h2>
-                    <div class="dc-grid">
-                        <div class="dc-card"><div class="dc-icon" style="background:linear-gradient(135deg, #4569ee, #263fb8); box-shadow:0 12px 22px rgba(52,85,219,.25);"><i class="bi bi-file-earmark-plus" style="color: white;"></i></div><h3 class="name">Total Request</h3><div class="qty">{{ brandPRs.length }}</div></div>
-                        <div class="dc-card"><div class="dc-icon" style="background: var(--warn-soft);"><i class="bi bi-hourglass-split" style="color: var(--warn);"></i></div><h3 class="name">Pending Approval</h3><div class="qty">{{ pendingPRs.length }}</div></div>
-                        <div class="dc-card"><div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-cart-check" style="color: var(--success);"></i></div><h3 class="name">PO Released</h3><div class="qty" style="color: var(--success);">{{ brandPOs.length }}</div></div>
+
+                    <!-- DONUT CHART STATUS PR -->
+                    <div class="dash-donut-card">
+                        <div class="dash-donut-wrap">
+                            <svg viewBox="0 0 200 200" class="dash-donut-svg">
+                                <g transform="rotate(-90 100 100)">
+                                    <circle v-if="donutTotal === 0" cx="100" cy="100" r="70" fill="none" stroke="#e5ebf4" stroke-width="26"></circle>
+                                    <circle v-for="seg in donutSegments" :key="seg.key" cx="100" cy="100" r="70" fill="none"
+                                        :stroke="seg.color" stroke-width="26" :stroke-dasharray="seg.dashArray" :stroke-dashoffset="seg.dashOffset"></circle>
+                                </g>
+                                <text x="100" y="96" text-anchor="middle" class="dash-donut-total-num">{{ donutTotal }}</text>
+                                <text x="100" y="117" text-anchor="middle" class="dash-donut-total-label">Total Request</text>
+                                <line v-for="seg in donutLabelSegments" :key="'line-' + seg.key"
+                                    :x1="seg.lineX1" :y1="seg.lineY1" :x2="seg.lineX2" :y2="seg.lineY2"
+                                    :stroke="seg.color" stroke-width="1.5" class="dash-donut-leader"></line>
+                                <text v-for="seg in donutLabelSegments" :key="'label-' + seg.key"
+                                    :x="seg.labelX" :y="seg.labelY" text-anchor="middle" class="dash-donut-pct" :fill="seg.color">{{ Math.round(seg.pct) }}%</text>
+                            </svg>
+                        </div>
+                        <div class="dash-status-grid">
+                            <div v-for="seg in donutSegments" :key="'box-' + seg.key" class="dash-status-box" :style="{ background: seg.bg }">
+                                <div class="dash-status-dot" :style="{ background: seg.soft }"></div>
+                                <div>
+                                    <div class="dash-status-count">{{ seg.count }}</div>
+                                    <div class="dash-status-label">{{ seg.label }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NOTIFIKASI: PR HAMPIR EXPIRED -->
+                    <div class="dash-section-card">
+                        <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Notifikasi -- PR Hampir Expired</div>
+                        <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
+                        <div v-else class="dash-notif-list">
+                            <div v-for="pr in expiringSoonPRs" :key="pr.id" class="dash-notif-row" @click="openEditPR(pr)">
+                                <div>
+                                    <div class="dash-notif-pr">{{ pr.pr_number }}</div>
+                                    <div class="dash-notif-branch">{{ pr.branch_name }}</div>
+                                </div>
+                                <i class="bi bi-chevron-right"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TOP ITEM BY COUNT OF PO -->
+                    <div class="dash-section-card">
+                        <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Item by Count of PO</div>
+                        <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
+                        <div v-else class="dash-top-item-list">
+                            <div v-for="(it, idx) in topItemsByPOCount" :key="it.item_name" class="dash-top-item-row">
+                                <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                <div class="dash-top-item-info">
+                                    <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                    <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
+                                </div>
+                                <div class="dash-top-item-count">{{ it.count }}x</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </transition>

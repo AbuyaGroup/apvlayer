@@ -215,6 +215,18 @@ function todayWIB() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+// "Besok" versi WIB -- dipake buat notifikasi "PR hampir Expired" di Dashboard: PR yang Required
+// Date-nya JATUH BESOK berarti HARI INI adalah H-1 (batas terakhir take action), soalnya PR baru
+// beneran ke-expire begitu tanggal HARI INI udah nyampe/lewat Required Date-nya (liat
+// expireOverduePRs()). Jadi "besok" di sini persis nunjukin PR yang paling mendesak.
+function tomorrowWIB() {
+    const wib = new Date(Date.now() + 7 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000);
+    const yyyy = wib.getUTCFullYear();
+    const mm = String(wib.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(wib.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 // Paksa lebar kalender flatpickr SAMA PERSIS kayak lebar box pemicunya (boxEl),
 // biar gak ada kalender yang lebih lebar/sempit dari box-nya kayak yang dikeluhin.
 // flatpickr nge-set lebar beberapa elemen internalnya sendiri (inline style), jadi
@@ -364,6 +376,18 @@ const STATUS_OPTIONS = [
     { value: 'Approved', label: 'Approved' },
     { value: 'Rejected', label: 'Rejected' },
     { value: 'Expired', label: 'Expired' }
+];
+
+// Urutan & warna segmen donut chart status PR di Dashboard -- warnanya SAMA persis kayak
+// .status-badge di style.css biar konsisten sama badge yang keliatan di tabel Daftar PR.
+// color = vivid, dipake buat cincin donut & label persentase.
+// soft  = versi lembut dari color yang sama, dipake buat titik/dot di kotak status.
+// bg    = background kotak status, warna soft yang senada sama status-nya.
+const DASHBOARD_STATUS_CONFIG = [
+    { key: 'Pending', label: 'Pending', color: '#bd7410', soft: '#dc9a3f', bg: '#fff6e7' },
+    { key: 'Approved', label: 'Approved', color: '#117b58', soft: '#3fa889', bg: '#e9f8f2' },
+    { key: 'Rejected', label: 'Rejected', color: '#d64157', soft: '#e2707f', bg: '#fff0f2' },
+    { key: 'Expired', label: 'Expired', color: '#71809a', soft: '#98a4bb', bg: '#eef1f5' }
 ];
 
 // Opsi buat dropdown Kategori Pengiriman di form PR. Ini daftar LENGKAPnya (Almaz Fried
@@ -683,6 +707,88 @@ const app = createApp({
         });
 
         const pendingPRs = computed(() => brandPRs.value.filter(pr => pr.status === 'Pending'));
+
+        // ============================================================
+        // DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
+        // ============================================================
+        // Jumlah PR per status (buat donut chart & 4 kotak angka di sampingnya)
+        const prStatusCounts = computed(() => {
+            const counts = { Pending: 0, Approved: 0, Rejected: 0, Expired: 0 };
+            brandPRs.value.forEach(pr => {
+                if (Object.prototype.hasOwnProperty.call(counts, pr.status)) counts[pr.status]++;
+            });
+            return counts;
+        });
+        const donutTotal = computed(() => brandPRs.value.length);
+
+        // Hitung tiap segmen donut: dash-array/offset buat gambar busur SVG-nya, plus posisi
+        // (x,y) buat naro label persentase PAS DI PINGGIR donat-nya (bukan di tengah/di dalem).
+        const donutSegments = computed(() => {
+            const total = donutTotal.value;
+            const R = 70, CX = 100, CY = 100;
+            const circumference = 2 * Math.PI * R;
+            let cumulative = 0;
+            return DASHBOARD_STATUS_CONFIG.map(cfg => {
+                const count = prStatusCounts.value[cfg.key] || 0;
+                const pct = total > 0 ? (count / total) * 100 : 0;
+                const dash = total > 0 ? (count / total) * circumference : 0;
+                const offset = cumulative;
+                cumulative += dash;
+                // -Math.PI/2 biar segmen pertama mulai dari jam 12 (bukan jam 3, default SVG)
+                const midAngle = total > 0 ? ((offset + dash / 2) / circumference) * 2 * Math.PI - Math.PI / 2 : 0;
+                // Label persentase digeser lebih jauh dari cincin donut (labelR), dan dikasih
+                // garis penghubung ("benang") dari pinggir cincin (lineR1) ke deket label-nya
+                // (lineR2) biar jelas persentase itu punya segmen yang mana + gak mepet ke donat.
+                const labelR = R + 40;
+                const lineR1 = R + 15;
+                const lineR2 = labelR - 12;
+                return {
+                    key: cfg.key,
+                    label: cfg.label,
+                    color: cfg.color,
+                    soft: cfg.soft,
+                    bg: cfg.bg,
+                    count,
+                    pct,
+                    dashArray: `${dash} ${circumference - dash}`,
+                    dashOffset: -offset,
+                    labelX: CX + labelR * Math.cos(midAngle),
+                    labelY: CY + labelR * Math.sin(midAngle),
+                    lineX1: CX + lineR1 * Math.cos(midAngle),
+                    lineY1: CY + lineR1 * Math.sin(midAngle),
+                    lineX2: CX + lineR2 * Math.cos(midAngle),
+                    lineY2: CY + lineR2 * Math.sin(midAngle)
+                };
+            });
+        });
+        // Cuma segmen yang count-nya > 0 -- dipisah dari donutSegments biar template svg-nya
+        // gak perlu v-for+v-if bareng di satu <text> (rawan bug percampuran scope di Vue 3).
+        const donutLabelSegments = computed(() => donutSegments.value.filter(s => s.count > 0));
+
+        // Notifikasi "PR Hampir Expired" -- PR Pending yang Required Date-nya jatuh BESOK (artinya
+        // HARI INI udah H-1, batas terakhir buat di-take action sebelum otomatis ke-expire).
+        const expiringSoonPRs = computed(() => {
+            const limit = tomorrowWIB();
+            return brandPRs.value.filter(pr => pr.status === 'Pending' && pr.required_date === limit);
+        });
+
+        // Top item paling sering dipesan diliat dari BERAPA KALI item itu nongol di PO yang beda
+        // (count of PO), BUKAN dari total qty-nya -- jadi item yang muncul di 5 PO beda (qty 1
+        // masing-masing) tetep menang dibanding item yang cuma muncul di 1 PO tapi qty-nya 100.
+        const topItemsByPOCount = computed(() => {
+            const counts = {};
+            brandPOs.value.forEach(po => {
+                const items = itemsByPrId.value[po.pr_id] || [];
+                const uniqueNamesInThisPO = new Set(items.map(it => it.item_name));
+                uniqueNamesInThisPO.forEach(name => {
+                    counts[name] = (counts[name] || 0) + 1;
+                });
+            });
+            return Object.entries(counts)
+                .map(([item_name, count]) => ({ item_name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5);
+        });
 
         // Sort state buat tabel Daftar PR & Daftar PO. Klik header sekali = urut naik (asc),
         // klik lagi di kolom yang sama = kebalik (desc), klik kolom lain = pindah ke kolom itu (asc).
@@ -1351,6 +1457,7 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
+            donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount,
             prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,
             prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,

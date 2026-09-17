@@ -100,6 +100,64 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dc-card .name{ font-family:'Space Grotesk',sans-serif; font-size:16px; color: var(--ink); margin: 0;}
 .dc-card .qty{ font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700; color: var(--ink); line-height: 1;}
 
+/* ============================================================
+   DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
+   ============================================================ */
+.dash-donut-card{
+    display:flex; align-items:center; gap:32px; flex-wrap:wrap; padding:28px;
+    background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); margin-bottom:20px;
+}
+.dash-donut-wrap{ width:220px; flex-shrink:0; margin:0 auto; }
+.dash-donut-svg{ width:100%; height:auto; overflow:visible; }
+.dash-donut-svg circle{ transition: stroke-dasharray .4s ease; }
+.dash-donut-total-num{ font-family:'IBM Plex Mono', monospace; font-size:30px; font-weight:700; fill:var(--ink); }
+.dash-donut-total-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; fill:var(--muted); }
+.dash-donut-pct{ font-size:12px; font-weight:700; }
+.dash-donut-leader{ opacity:.55; }
+.dash-status-grid{ display:grid; grid-template-columns:repeat(2, minmax(120px,1fr)); gap:14px 24px; flex:1 1 260px; }
+.dash-status-box{
+    display:flex; align-items:center; gap:11px; padding:14px 16px; border-radius:14px;
+    box-shadow:0 3px 10px rgba(29,50,105,.06);
+}
+.dash-status-dot{ width:13px; height:13px; border-radius:50%; flex-shrink:0; }
+.dash-status-count{ font-family:'IBM Plex Mono', monospace; font-size:21px; font-weight:700; color:var(--ink) !important; line-height:1.15; }
+.dash-status-label{ font-size:11.5px; color:var(--muted); font-weight:600; }
+
+.dash-section-card{
+    padding:22px 26px; background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); margin-bottom:20px;
+}
+.dash-section-title{
+    display:flex; align-items:center; gap:9px; font-family:'Space Grotesk',sans-serif; font-size:15.5px;
+    font-weight:700; color:var(--ink); margin-bottom:16px;
+}
+.dash-section-title i{ color:var(--primary); font-size:15px; }
+.dash-empty-note{ text-align:center; color:var(--muted); font-size:13.5px; padding:20px 0; }
+
+.dash-notif-list{ display:flex; flex-direction:column; }
+.dash-notif-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 4px;
+    border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s ease;
+}
+.dash-notif-row:last-child{ border-bottom:none; }
+.dash-notif-row:hover{ background:#f8faff; }
+.dash-notif-row i{ color:var(--muted); font-size:14px; flex-shrink:0; }
+.dash-notif-pr{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:13.5px; }
+.dash-notif-branch{ font-size:12.5px; color:var(--muted); font-weight:500; margin-top:2px; }
+
+.dash-top-item-list{ display:flex; flex-direction:column; gap:14px; }
+.dash-top-item-row{ display:flex; align-items:center; gap:14px; }
+.dash-top-item-rank{
+    width:24px; height:24px; border-radius:50%; background:var(--primary-soft); color:var(--primary-deep);
+    font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.dash-top-item-info{ flex:1 1 auto; min-width:0; }
+.dash-top-item-name{ font-size:13.5px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+.dash-top-item-bar-wrap{ height:7px; border-radius:5px; background:var(--surface-0); overflow:hidden; }
+.dash-top-item-bar{ height:100%; border-radius:5px; background:linear-gradient(90deg, #3d61e9, #2945c9); }
+.dash-top-item-count{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--ink); font-size:13.5px; flex-shrink:0; }
+
 .produk-toolbar{
     display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px;
     padding:16px 20px; border:1px solid var(--border); border-radius:18px; background:rgba(255,255,255,.84); box-shadow:0 5px 18px rgba(32,50,103,.04);
