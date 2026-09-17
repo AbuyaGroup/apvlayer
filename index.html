@@ -496,7 +496,6 @@
                         <table class="produk-table">
                             <thead><tr>
                                 <th class="sortable-th" @click="toggleSortPO('po_number')">PO Number <i v-if="poSortField === 'po_number'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
-                                <th class="sortable-th" @click="toggleSortPO('pr_number')">PR Reference <i v-if="poSortField === 'pr_number'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('branch_name')">Branch Name <i v-if="poSortField === 'branch_name'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('shipping_category')">Shipping <i v-if="poSortField === 'shipping_category'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('pic')">PIC <i v-if="poSortField === 'pic'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
@@ -506,7 +505,6 @@
                             <tbody>
                                 <tr v-for="po in filteredPOs" :key="po.id">
                                     <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ po.po_number }}</td>
-                                    <td><span style="background: var(--surface-0); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">{{ po.purchase_requests?.pr_number || '-' }}</span></td>
                                     <td>{{ po.purchase_requests?.branch_name || '-' }}</td>
                                     <td>{{ po.purchase_requests?.shipping_category || '-' }}</td>
                                     <td>{{ po.purchase_requests?.pic || '-' }}</td>
@@ -515,7 +513,7 @@
                                         <button @click="openViewPO(po)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;"><i class="bi bi-eye"></i></button>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredPOs.length === 0"><td colspan="7" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
+                                <tr v-if="filteredPOs.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Order.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -533,7 +531,7 @@
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
                             <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pic || '-' }}</div></div>
-                            <div><div class="pr-detail-label">Release Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.created_at) }}</div></div>
+                            <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.purchase_requests?.required_date) }}</div></div>
                         </div>
 
                         <div class="pr-info-box">

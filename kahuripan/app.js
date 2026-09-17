@@ -851,7 +851,7 @@ const app = createApp({
             try {
                 const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
-                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, pic)').order('created_at', { ascending: false }),
+                    supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, pic, required_date)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
                     supabaseClient.from('purchase_request_items').select('*').order('id'),
