@@ -50,7 +50,15 @@ function resolveConfirm(result) {
 const SUPABASE_URL = "https://onruaqagzmeiyvpvjhve.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ucnVhcWFnem1laXl2cHZqaHZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTM4NTAsImV4cCI6MjEwNDQyOTg1MH0._LF6NqW1uvcz2lq-d8LY2GOcyUak7M592wNhA7uG7Rk";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Session Supabase sengaja disimpen di sessionStorage (BUKAN localStorage default) --
+// sessionStorage otomatis ke-hapus browser sendiri begitu TAB-nya ditutup, jadi begitu
+// dibuka lagi (tab baru/browser baru) otomatis balik ke layar login, gak perlu timer/event
+// listener tambahan yang gak reliable (browser gak bisa bedain "nutup tab" vs "refresh").
+// Refresh (F5) di tab yang SAMA tetep aman, sessionStorage-nya gak ilang -- cuma nutup
+// tab/browser yang bikin harus login ulang.
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { storage: window.sessionStorage }
+});
 
 // Bikin nomor PR/PO berdasarkan TANGGAL dibuat (bukan random/jam), format: PREFIX-DDMMYYYY-NN.
 // Contoh: PR-16092026-01, PO-16092026-01.
