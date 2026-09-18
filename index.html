@@ -322,11 +322,11 @@
                     <div class="pr-form-card">
                         <form @submit.prevent="submitPR">
                             <div class="pr-form-grid">
-                                <div class="field"><label>Branch Name</label>
+                                <div class="field field-branch-wide"><label>Branch Name</label>
                                     <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --" :searchable="true"></searchable-select>
                                 </div>
                                 <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
-                                <div class="field"><label>Kategori Pengiriman</label>
+                                <div class="field field-fit-content"><label>Shipping Category</label>
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
                                 <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
@@ -437,7 +437,7 @@
                     <div class="pr-form-card">
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
-                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
@@ -531,7 +531,7 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">PR Reference</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pr_number || '-' }}</div></div>
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.branch_name || '-' }}</div></div>
-                            <div><div class="pr-detail-label">Kategori Pengiriman</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.shipping_category || '-' }}</div></div>
                             <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ viewingPO.purchase_requests?.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(viewingPO.purchase_requests?.required_date) }}</div></div>
                         </div>
@@ -588,31 +588,63 @@
 
                     <!-- NOTIFIKASI: PR HAMPIR EXPIRED -->
                     <div class="dash-section-card">
-                        <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Notifikasi -- PR Hampir Expired</div>
+                        <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Expiring Purchase Requests</div>
                         <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
-                        <div v-else class="dash-notif-list">
-                            <div v-for="pr in expiringSoonPRs" :key="pr.id" class="dash-notif-row" @click="openEditPR(pr)">
-                                <div>
-                                    <div class="dash-notif-pr">{{ pr.pr_number }}</div>
-                                    <div class="dash-notif-branch">{{ pr.branch_name }}</div>
-                                </div>
-                                <i class="bi bi-chevron-right"></i>
+                        <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': expiringSoonPRs.length > 5 }">
+                            <div class="dash-notif-list stickyroll-track" :class="{ 'stickyroll-anim': expiringSoonPRs.length > 5 }"
+                                 :style="expiringSoonPRs.length > 5 ? { animationDuration: (expiringSoonPRs.length * 2.5) + 's' } : {}">
+                                <template v-for="copy in (expiringSoonPRs.length > 5 ? 2 : 1)" :key="'notif-copy-' + copy">
+                                    <div v-for="pr in expiringSoonPRs" :key="copy + '-' + pr.id" class="dash-notif-row" @click="openEditPR(pr)">
+                                        <div>
+                                            <div class="dash-notif-pr">{{ pr.pr_number }}</div>
+                                            <div class="dash-notif-branch">{{ pr.branch_name }}</div>
+                                        </div>
+                                        <i class="bi bi-chevron-right"></i>
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </div>
 
-                    <!-- TOP ITEM BY COUNT OF PO -->
-                    <div class="dash-section-card">
-                        <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Item by Count of PO</div>
-                        <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
-                        <div v-else class="dash-top-item-list">
-                            <div v-for="(it, idx) in topItemsByPOCount" :key="it.item_name" class="dash-top-item-row">
-                                <div class="dash-top-item-rank">{{ idx + 1 }}</div>
-                                <div class="dash-top-item-info">
-                                    <div class="dash-top-item-name">{{ it.item_name }}</div>
-                                    <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
+                    <!-- TOP ITEM BY COUNT OF PO & BY COUNT OF QUANTITY -->
+                    <div class="dash-top-items-grid">
+                        <div class="dash-section-card">
+                            <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
+                            <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }">
+                                <div class="dash-top-item-list stickyroll-track" :class="{ 'stickyroll-anim': topItemsByPOCount.length > 5 }"
+                                     :style="topItemsByPOCount.length > 5 ? { animationDuration: (topItemsByPOCount.length * 2.5) + 's' } : {}">
+                                    <template v-for="copy in (topItemsByPOCount.length > 5 ? 2 : 1)" :key="'po-copy-' + copy">
+                                        <div v-for="(it, idx) in topItemsByPOCount" :key="copy + '-po-' + it.item_name" class="dash-top-item-row">
+                                            <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                            <div class="dash-top-item-info">
+                                                <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                                <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
+                                            </div>
+                                            <div class="dash-top-item-count">{{ it.count }}x</div>
+                                        </div>
+                                    </template>
                                 </div>
-                                <div class="dash-top-item-count">{{ it.count }}x</div>
+                            </div>
+                        </div>
+
+                        <div class="dash-section-card">
+                            <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
+                            <div v-if="topItemsByQtyCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }">
+                                <div class="dash-top-item-list stickyroll-track" :class="{ 'stickyroll-anim': topItemsByQtyCount.length > 5 }"
+                                     :style="topItemsByQtyCount.length > 5 ? { animationDuration: (topItemsByQtyCount.length * 2.5) + 's' } : {}">
+                                    <template v-for="copy in (topItemsByQtyCount.length > 5 ? 2 : 1)" :key="'qty-copy-' + copy">
+                                        <div v-for="(it, idx) in topItemsByQtyCount" :key="copy + '-qty-' + it.item_name" class="dash-top-item-row">
+                                            <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                            <div class="dash-top-item-info">
+                                                <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                                <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.qty / topItemsByQtyCount[0].qty * 100) + '%' }"></div></div>
+                                            </div>
+                                            <div class="dash-top-item-count">{{ it.qty }}</div>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </div>
                     </div>

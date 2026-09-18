@@ -787,7 +787,24 @@ const app = createApp({
             return Object.entries(counts)
                 .map(([item_name, count]) => ({ item_name, count }))
                 .sort((a, b) => b.count - a.count)
-                .slice(0, 5);
+                .slice(0, 10);
+        });
+
+        // Top item paling sering dipesan diliat dari TOTAL QTY-nya (jumlah semua qty item itu
+        // digabung dari semua PO) -- beda sama topItemsByPOCount yang ngitung frekuensi PO, ini
+        // ngitung total banyaknya barang yang dipesan.
+        const topItemsByQtyCount = computed(() => {
+            const totals = {};
+            brandPOs.value.forEach(po => {
+                const items = itemsByPrId.value[po.pr_id] || [];
+                items.forEach(it => {
+                    totals[it.item_name] = (totals[it.item_name] || 0) + (Number(it.qty) || 0);
+                });
+            });
+            return Object.entries(totals)
+                .map(([item_name, qty]) => ({ item_name, qty }))
+                .sort((a, b) => b.qty - a.qty)
+                .slice(0, 10);
         });
 
         // Sort state buat tabel Daftar PR & Daftar PO. Klik header sekali = urut naik (asc),
@@ -1457,7 +1474,7 @@ const app = createApp({
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
             currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
-            donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount,
+            donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,
             prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,

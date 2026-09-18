@@ -146,6 +146,29 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dash-notif-pr{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:13.5px; }
 .dash-notif-branch{ font-size:12.5px; color:var(--muted); font-weight:500; margin-top:2px; }
 
+/* "Stickyroll" -- kalo isi list-nya lebih dari 5, daripada bikin card-nya makin manjang ke
+   bawah terus, list-nya dikunci tingginya (kira-kira setinggi 5 baris) trus KONTEN-nya
+   di-duplikat sekali (lewat v-for di template) dan di-scroll otomatis pake CSS animation
+   translateY 0% -> -50% (pas separuh perjalanan itu = udah nampilin 1 salinan penuh), jadi
+   keliatan muter terus tanpa putus/patah. Kalo <= 5 item, class stickyroll-active/anim gak
+   kepasang -- list-nya statis biasa, gak ke-duplikat & gak discroll. */
+.stickyroll-wrap{ position:relative; overflow:hidden; }
+.stickyroll-wrap.stickyroll-active{ max-height:280px; }
+.stickyroll-wrap.stickyroll-active::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:26px; pointer-events:none;
+    background:linear-gradient(to bottom, rgba(255,255,255,0), var(--surface-1));
+}
+.stickyroll-track.stickyroll-anim{ animation-name:stickyroll-scroll; animation-timing-function:linear; animation-iteration-count:infinite; }
+.stickyroll-wrap.stickyroll-active:hover .stickyroll-track.stickyroll-anim{ animation-play-state:paused; }
+@keyframes stickyroll-scroll{
+    0%{ transform:translateY(0); }
+    100%{ transform:translateY(-50%); }
+}
+
+/* Dua card "Top Item" ditaro sejajar (berdampingan), numpuk jadi 1 kolom kalo layar sempit. */
+.dash-top-items-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
+@media (max-width: 760px){ .dash-top-items-grid{ grid-template-columns:1fr; } }
+
 .dash-top-item-list{ display:flex; flex-direction:column; gap:14px; }
 .dash-top-item-row{ display:flex; align-items:center; gap:14px; }
 .dash-top-item-rank{
@@ -338,6 +361,15 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-form-grid{
     display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 340px)); gap:4px 24px;
 }
+/* Branch Name dibikin agak lebih panjang -- nama branch suka kepanjangan buat 1 kolom biasa.
+   Baru kepasang lebarnya pas layar cukup lebar buat nampung 2 kolom grid, biar di HP/layar
+   sempit gak malah maksa bikin kolom ekstra yang gak perlu (grid auto-fit + span kalo dipaksa
+   di 1 kolom bisa bikin layoutnya aneh). */
+@media (min-width: 700px){ .field-branch-wide{ grid-column: span 2; } }
+/* Kategori Pengiriman -- daripada ikut melar penuh 1 kolom grid kayak field lain, box-nya
+   dibikin nyusut ngikutin lebar opsi paling panjang ("Indirect (Vendor)") aja. */
+.field-fit-content{ justify-self:start; }
+.field-fit-content .ss-wrap{ width:230px; }
 .pr-item-adder{ display:flex; gap:12px; align-items:center; margin-bottom:16px; }
 .pr-item-adder .field{ flex:1 1 auto; }
 .pr-item-adder .field.qty-field{ flex:0 0 110px; }
@@ -359,7 +391,10 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
    tampilannya diselarasin sama date-range-filter di Daftar PR, tapi ngikutin
    ukuran/proporsi .field input biasa biar nyatu sama field lain di form. */
 .date-picker-field{
-    display:flex; align-items:center; gap:8px; width:100%; border:1px solid #dce4f0; background:#f8faff;
+    /* max-width DIKUNCI biar sama kayak lebar box .date-range-filter di Daftar PR -- kalendernya
+       (flatpickr) lebarnya di-sync ke lebar box pemicu ini lewat syncFlatpickrWidth() di app.js,
+       jadi kalo box-nya beda lebar, kalendernya ikut beda ukuran/kecembungan sel tanggalnya. */
+    display:flex; align-items:center; gap:8px; width:100%; max-width:220px; border:1px solid #dce4f0; background:#f8faff;
     border-radius:11px; padding:12px 13px; cursor:pointer;
 }
 .date-picker-field:focus-within{ border-color:var(--primary); background:#fff; }
