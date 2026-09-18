@@ -592,15 +592,13 @@
                         <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
                         <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': expiringSoonPRs.length > 5 }" v-stickyroll="expiringSoonPRs.length > 5">
                             <div class="dash-notif-list stickyroll-track">
-                                <template v-for="copy in (expiringSoonPRs.length > 5 ? 2 : 1)" :key="'notif-copy-' + copy">
-                                    <div v-for="pr in expiringSoonPRs" :key="copy + '-' + pr.id" class="dash-notif-row" @click="openEditPR(pr)">
-                                        <div>
-                                            <div class="dash-notif-pr">{{ pr.pr_number }}</div>
-                                            <div class="dash-notif-branch">{{ pr.branch_name }}</div>
-                                        </div>
-                                        <i class="bi bi-chevron-right"></i>
+                                <div v-for="pr in expiringSoonPRs" :key="pr.id" class="dash-notif-row" @click="openEditPR(pr)">
+                                    <div>
+                                        <div class="dash-notif-pr">{{ pr.pr_number }}</div>
+                                        <div class="dash-notif-branch">{{ pr.branch_name }}</div>
                                     </div>
-                                </template>
+                                    <i class="bi bi-chevron-right"></i>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -612,16 +610,14 @@
                             <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
                             <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }" v-stickyroll="topItemsByPOCount.length > 5">
                                 <div class="dash-top-item-list stickyroll-track">
-                                    <template v-for="copy in (topItemsByPOCount.length > 5 ? 2 : 1)" :key="'po-copy-' + copy">
-                                        <div v-for="(it, idx) in topItemsByPOCount" :key="copy + '-po-' + it.item_name" class="dash-top-item-row">
-                                            <div class="dash-top-item-rank">{{ idx + 1 }}</div>
-                                            <div class="dash-top-item-info">
-                                                <div class="dash-top-item-name">{{ it.item_name }}</div>
-                                                <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
-                                            </div>
-                                            <div class="dash-top-item-count">{{ it.count }}x</div>
+                                    <div v-for="(it, idx) in topItemsByPOCount" :key="it.item_name" class="dash-top-item-row">
+                                        <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                        <div class="dash-top-item-info">
+                                            <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                            <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
                                         </div>
-                                    </template>
+                                        <div class="dash-top-item-count">{{ it.count }}x</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -631,16 +627,14 @@
                             <div v-if="topItemsByQtyCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
                             <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }" v-stickyroll="topItemsByQtyCount.length > 5">
                                 <div class="dash-top-item-list stickyroll-track">
-                                    <template v-for="copy in (topItemsByQtyCount.length > 5 ? 2 : 1)" :key="'qty-copy-' + copy">
-                                        <div v-for="(it, idx) in topItemsByQtyCount" :key="copy + '-qty-' + it.item_name" class="dash-top-item-row">
-                                            <div class="dash-top-item-rank">{{ idx + 1 }}</div>
-                                            <div class="dash-top-item-info">
-                                                <div class="dash-top-item-name">{{ it.item_name }}</div>
-                                                <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.qty / topItemsByQtyCount[0].qty * 100) + '%' }"></div></div>
-                                            </div>
-                                            <div class="dash-top-item-count">{{ it.qty }}</div>
+                                    <div v-for="(it, idx) in topItemsByQtyCount" :key="it.item_name" class="dash-top-item-row">
+                                        <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                        <div class="dash-top-item-info">
+                                            <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                            <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.qty / topItemsByQtyCount[0].qty * 100) + '%' }"></div></div>
                                         </div>
-                                    </template>
+                                        <div class="dash-top-item-count">{{ it.qty }}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

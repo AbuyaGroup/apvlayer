@@ -146,24 +146,26 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dash-notif-pr{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:13.5px; }
 .dash-notif-branch{ font-size:12.5px; color:var(--muted); font-weight:500; margin-top:2px; }
 
-/* "Stickyroll" -- Interactive Infinite Marquee. Kalo isi list-nya lebih dari 5, daripada bikin
+/* "Stickyroll" -- Yoyo / Ping-Pong auto-scroll. Kalo isi list-nya lebih dari 5, daripada bikin
    card-nya makin manjang ke bawah terus, list-nya dikunci tingginya (kira-kira setinggi 5
-   baris), KONTEN-nya di-duplikat sekali (lewat v-for di template), dan di-auto-scroll
-   pelan-pelan lewat direktif v-stickyroll di app.js -- posisinya digerakin murni pake CSS
-   transform:translateY (BUKAN native scrollTop/overflow:auto, itu yang sebelumnya bikin dia
-   "macet" pas nyampe item terakhir), jadi loop-nya gak akan pernah nyangkut dan titik muter
-   baliknya selalu pas (dihitung dari tinggi asli hasil render). Tetep interactive -- di-hover/
-   disentuh langsung pause, dan bisa di-drag manual (mouse/jari) buat maju-mundur sendiri.
-   Kalo <= 5 item, class stickyroll-active gak kepasang -- list-nya statis biasa, gak
-   ke-duplikat & gak jalan. */
+   baris) dan di-auto-scroll pelan lewat direktif v-stickyroll di app.js -- turun sampe abis,
+   terus balik arah naik sampe balik ke atas lagi, gitu terus bolak-balik (BUKAN loop
+   satu-arah tanpa akhir, jadi kontennya CUKUP 1 salinan, gak perlu di-duplikat). Container-nya
+   overflow-y:auto ASLI (native scroll browser) -- auto-scroll cuma gerakin scrollTop-nya
+   bolak-balik antara paling atas & paling bawah, jadi gak akan pernah nyangkut. Manual scroll
+   tetep bisa lewat wheel/trackpad/scrollbar/swipe biasa (BUKAN drag custom) -- auto-scroll
+   otomatis pause pas lagi di-hover/disentuh. Kalo <= 5 item, class stickyroll-active gak
+   kepasang -- list-nya statis biasa, gak jalan. */
 .stickyroll-wrap{ position:relative; overflow:hidden; }
-.stickyroll-wrap.stickyroll-active{ max-height:280px; cursor:grab; touch-action:none; }
-.stickyroll-wrap.stickyroll-active.stickyroll-dragging{ cursor:grabbing; }
-.stickyroll-wrap.stickyroll-active .stickyroll-track{ will-change:transform; }
-.stickyroll-wrap.stickyroll-active.stickyroll-dragging .stickyroll-track,
-.stickyroll-wrap.stickyroll-active.stickyroll-dragging *{ user-select:none; }
+.stickyroll-wrap.stickyroll-active{
+    max-height:280px; overflow-y:auto; overflow-x:hidden;
+    scrollbar-width:thin; scrollbar-color:#d7deea transparent;
+}
+.stickyroll-wrap.stickyroll-active::-webkit-scrollbar{ width:5px; }
+.stickyroll-wrap.stickyroll-active::-webkit-scrollbar-track{ background:transparent; }
+.stickyroll-wrap.stickyroll-active::-webkit-scrollbar-thumb{ background:#d7deea; border-radius:3px; }
 .stickyroll-wrap.stickyroll-active::after{
-    content:''; position:absolute; left:0; right:0; bottom:0; height:26px; pointer-events:none;
+    content:''; position:absolute; left:0; right:6px; bottom:0; height:26px; pointer-events:none;
     background:linear-gradient(to bottom, rgba(255,255,255,0), var(--surface-1));
 }
 
