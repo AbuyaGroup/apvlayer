@@ -590,9 +590,8 @@
                     <div class="dash-section-card">
                         <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Expiring Purchase Requests</div>
                         <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
-                        <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': expiringSoonPRs.length > 5 }">
-                            <div class="dash-notif-list stickyroll-track" :class="{ 'stickyroll-anim': expiringSoonPRs.length > 5 }"
-                                 :style="expiringSoonPRs.length > 5 ? { animationDuration: (expiringSoonPRs.length * 2.5) + 's' } : {}">
+                        <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': expiringSoonPRs.length > 5 }" v-stickyroll="expiringSoonPRs.length > 5">
+                            <div class="dash-notif-list stickyroll-track">
                                 <template v-for="copy in (expiringSoonPRs.length > 5 ? 2 : 1)" :key="'notif-copy-' + copy">
                                     <div v-for="pr in expiringSoonPRs" :key="copy + '-' + pr.id" class="dash-notif-row" @click="openEditPR(pr)">
                                         <div>
@@ -611,9 +610,8 @@
                         <div class="dash-section-card">
                             <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
                             <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
-                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }">
-                                <div class="dash-top-item-list stickyroll-track" :class="{ 'stickyroll-anim': topItemsByPOCount.length > 5 }"
-                                     :style="topItemsByPOCount.length > 5 ? { animationDuration: (topItemsByPOCount.length * 2.5) + 's' } : {}">
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }" v-stickyroll="topItemsByPOCount.length > 5">
+                                <div class="dash-top-item-list stickyroll-track">
                                     <template v-for="copy in (topItemsByPOCount.length > 5 ? 2 : 1)" :key="'po-copy-' + copy">
                                         <div v-for="(it, idx) in topItemsByPOCount" :key="copy + '-po-' + it.item_name" class="dash-top-item-row">
                                             <div class="dash-top-item-rank">{{ idx + 1 }}</div>
@@ -631,9 +629,8 @@
                         <div class="dash-section-card">
                             <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
                             <div v-if="topItemsByQtyCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
-                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }">
-                                <div class="dash-top-item-list stickyroll-track" :class="{ 'stickyroll-anim': topItemsByQtyCount.length > 5 }"
-                                     :style="topItemsByQtyCount.length > 5 ? { animationDuration: (topItemsByQtyCount.length * 2.5) + 's' } : {}">
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }" v-stickyroll="topItemsByQtyCount.length > 5">
+                                <div class="dash-top-item-list stickyroll-track">
                                     <template v-for="copy in (topItemsByQtyCount.length > 5 ? 2 : 1)" :key="'qty-copy-' + copy">
                                         <div v-for="(it, idx) in topItemsByQtyCount" :key="copy + '-qty-' + it.item_name" class="dash-top-item-row">
                                             <div class="dash-top-item-rank">{{ idx + 1 }}</div>

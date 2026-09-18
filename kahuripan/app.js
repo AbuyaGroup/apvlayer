@@ -422,7 +422,6 @@ const PR_SEARCH_FIELDS = [
     { value: 'pr_number', label: 'Request Number' },
     { value: 'branch_name', label: 'Branch' },
     { value: 'pic', label: 'PIC' },
-    { value: 'required_date', label: 'Required Date' },
     { value: 'notes', label: 'Notes' }
 ];
 
@@ -433,6 +432,139 @@ const PO_SEARCH_FIELDS = [
     { value: 'branch_name', label: 'Branch' },
     { value: 'pic', label: 'PIC' }
 ];
+
+// ============================================================
+// DIREKTIF v-stickyroll -- "Interactive Infinite Marquee" buat list dashboard yang bisa
+// kepanjangan (Notifikasi PR Hampir Expired, Top Item by PO, Top Item by Qty).
+// v-stickyroll="true" (item > 5) bikin isinya auto-scroll pelan ke atas terus-menerus dan
+// LOOP TANPA PUTUS (kontennya beneran di-duplikat 2x di template -- lihat v-for="copy in 2"
+// di index.html).
+//
+// Versi SEBELUMNYA pake native scrollTop (overflow-y:auto browser) buat gerakinnya -- ternyata
+// itu yang bikin dia "macet"/nyangkut pas nyampe item terakhir (native scroll punya clamping &
+// momentum/inertia sendiri yang bentrok sama scrollTop yang kita gerakin manual tiap frame).
+// Sekarang diganti TOTAL: posisinya digerakin murni pake CSS transform:translateY(...) yang
+// kita hitung & apply sendiri tiap frame -- gak nyentuh native scroll sama sekali, jadi gak
+// akan pernah "nyangkut" kayak sebelumnya. Titik "muter balik ke nomor 1"-nya dihitung dari
+// tinggi ASLI hasil render (scrollHeight/2), jadi selalu pas persis di manapun.
+//
+// Tetep INTERACTIVE: hover/sentuh = auto-scroll pause (posisi kepertahanin, lanjut lagi dari
+// situ), dan bisa langsung di-DRAG (mouse atau jari) buat maju/mundur manual kapan aja ke
+// arah manapun, tetep infinite pas di-drag ngelewatin batas satu putaran.
+// ============================================================
+const STICKYROLL_SPEED = 24; // px per detik -- pelan & smooth
+
+const stickyrollDirective = {
+    mounted(el, binding) {
+        const track = el.querySelector('.stickyroll-track');
+        if (!track) return;
+        el._srTrack = track;
+        el._srActive = !!binding.value;
+        el._srOffset = 0;   // posisi translateY sekarang (px, selalu <= 0)
+        el._srDistance = 0; // tinggi 1 salinan konten (px) -- ini titik loop-nya
+        el._srPaused = false;
+        el._srDragging = false;
+
+        const measure = () => { el._srDistance = track.scrollHeight / 2; };
+        const wrap = () => {
+            const d = el._srDistance;
+            if (d <= 0) return;
+            while (el._srOffset <= -d) el._srOffset += d;
+            while (el._srOffset > 0) el._srOffset -= d;
+        };
+        const render = () => { track.style.transform = `translateY(${el._srOffset}px)`; };
+
+        // -------- Hover/sentuh = pause (posisi kepertahanin) --------
+        el._srPause = () => { el._srPaused = true; };
+        el._srResume = () => { if (!el._srDragging) el._srPaused = false; };
+        el.addEventListener('mouseenter', el._srPause);
+        el.addEventListener('mouseleave', el._srResume);
+
+        // -------- Drag manual (mouse & jari) --------
+        let startY = 0, startOffset = 0;
+        const onMove = (e) => {
+            if (!el._srDragging) return;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            el._srOffset = startOffset + (y - startY);
+            wrap();
+            render();
+        };
+        const onUp = () => {
+            if (!el._srDragging) return;
+            el._srDragging = false;
+            el.classList.remove('stickyroll-dragging');
+            el._srPaused = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+        };
+        const onDown = (e) => {
+            if (!el._srActive) return;
+            el._srDragging = true;
+            el._srPaused = true;
+            el.classList.add('stickyroll-dragging');
+            startY = e.touches ? e.touches[0].clientY : e.clientY;
+            startOffset = el._srOffset;
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove, { passive: true });
+            window.addEventListener('touchend', onUp);
+        };
+        el.addEventListener('mousedown', onDown);
+        el.addEventListener('touchstart', onDown, { passive: true });
+        el._srCleanupDrag = () => {
+            el.removeEventListener('mousedown', onDown);
+            el.removeEventListener('touchstart', onDown);
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+        };
+
+        // -------- Loop utama: auto-advance tiap frame kalo lagi aktif & gak lagi di-pause/drag --------
+        let lastTs = null;
+        const tick = (ts) => {
+            if (!el.isConnected) return; // elemen udah ke-unmount, stop loop-nya
+            if (el._srActive) {
+                if (el._srDistance <= 0) measure();
+                if (lastTs == null) lastTs = ts;
+                const dt = ts - lastTs;
+                lastTs = ts;
+                if (!el._srPaused && !el._srDragging) {
+                    el._srOffset -= (STICKYROLL_SPEED * dt) / 1000;
+                    wrap();
+                    render();
+                }
+            } else {
+                lastTs = null;
+            }
+            el._srRaf = requestAnimationFrame(tick);
+        };
+
+        // ResizeObserver -- kalo isi/tinggi list-nya berubah (misal data ke-refresh), jarak
+        // loop-nya ke-ukur ulang otomatis biar gak pernah salah.
+        el._srRO = new ResizeObserver(() => measure());
+        el._srRO.observe(track);
+        measure();
+        el._srRaf = requestAnimationFrame(tick);
+    },
+    updated(el, binding) {
+        const nowActive = !!binding.value;
+        if (!nowActive && el._srActive) {
+            el._srOffset = 0;
+            if (el._srTrack) el._srTrack.style.transform = '';
+        }
+        el._srActive = nowActive;
+    },
+    unmounted(el) {
+        if (el._srRaf) cancelAnimationFrame(el._srRaf);
+        if (el._srRO) el._srRO.disconnect();
+        el.removeEventListener('mouseenter', el._srPause);
+        el.removeEventListener('mouseleave', el._srResume);
+        if (el._srCleanupDrag) el._srCleanupDrag();
+    }
+};
 
 const app = createApp({
     setup() {
@@ -850,8 +982,7 @@ const app = createApp({
             if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase();
                 result = result.filter(pr => {
-                    // "Required Date" di-search berdasarkan tampilan (dd-mm-yyyy) biar sesuai apa yang keliatan di user
-                    const raw = prSearchField.value === 'required_date' ? formatDate(pr.required_date) : pr[prSearchField.value];
+                    const raw = pr[prSearchField.value];
                     return String(raw || '').toLowerCase().includes(query);
                 });
             }
@@ -1498,4 +1629,5 @@ const app = createApp({
     .component('searchable-select', SearchableSelect)
     .component('date-range-filter', DateRangeFilter)
     .component('date-picker-field', DatePickerField)
+    .directive('stickyroll', stickyrollDirective)
     .mount('#app');
