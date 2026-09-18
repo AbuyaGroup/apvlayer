@@ -268,6 +268,10 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-control:hover{ border-color:#c3d0e8; }
 .ss-control.open{ border-color:var(--primary); box-shadow:0 0 0 4px rgba(52,85,219,.11); background:#fff; }
 .ss-control i{ color:var(--muted); font-size:13px; flex-shrink:0; }
+/* Teks yang dipilih dipaksa 1 baris (dipotong "..." kalo kepanjangan) daripada wrap ke baris ke-2
+   -- box-nya 2 baris bikin tinggi tiap dropdown beda-beda & chevron-nya jadi ketengah aneh.
+   min-width:0 WAJIB di sini biar text-overflow:ellipsis-nya kepake di dalem flex container. */
+.ss-control > span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .ss-placeholder{ color:#93a0b8; }
 .ss-panel{
     position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:50; background:var(--surface-1);
@@ -358,17 +362,20 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
        keliatan kayak card-nya "kepotong separuh". Sekarang ngikutin lebar konten aja,
        sama kayak .produk-table-wrap yang lain. */
 }
-.pr-form-grid{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 340px)); gap:4px 24px;
-}
-/* Branch Name dibikin agak lebih panjang -- nama branch suka kepanjangan buat 1 kolom biasa.
-   Baru kepasang lebarnya pas layar cukup lebar buat nampung 2 kolom grid, biar di HP/layar
-   sempit gak malah maksa bikin kolom ekstra yang gak perlu (grid auto-fit + span kalo dipaksa
-   di 1 kolom bisa bikin layoutnya aneh). */
-@media (min-width: 700px){ .field-branch-wide{ grid-column: span 2; } }
-/* Kategori Pengiriman -- daripada ikut melar penuh 1 kolom grid kayak field lain, box-nya
-   dibikin nyusut ngikutin lebar opsi paling panjang ("Indirect (Vendor)") aja. */
-.field-fit-content{ justify-self:start; }
+/* Ganti dari CSS Grid (semua kolom lebarnya kepaksa sama rata) ke flexbox -- biar Branch
+   Name/Required Date/Shipping Category bisa punya lebar beda-beda sendiri TAPI tetep bisa
+   sejajar di baris yang sama, dan tetep wrap ke baris baru pas layar sempit / field kepanjangan. */
+.pr-form-grid{ display:flex; flex-wrap:wrap; gap:4px 24px; }
+/* Required Date & PIC -- lebar tetep (gak ikut) growing), biar gak ke-geser2 pas Branch Name
+   ngambil sisa ruang di baris. */
+.pr-form-grid .field{ flex:0 0 260px; }
+/* Branch Name -- flex-grow:1 biar NGAMBIL SEMUA sisa ruang kosong di baris yang sama (bukan cuma
+   dilebarin dikit kayak sebelumnya), jadi nama cabang panjang tetep muat 1 baris tanpa turun
+   ke baris ke-2, dan ruang kosong di kanan (Required Date/Shipping Category) kepake. */
+.pr-form-grid .field.field-branch-wide{ flex:1 1 300px; max-width:none; }
+/* Shipping Category -- daripada ikut melar kayak field lain, box-nya dibikin pas ngikutin
+   lebar opsi paling panjang ("Indirect (Vendor)") aja, gak nyita jatah baris yang lain. */
+.pr-form-grid .field.field-fit-content{ flex:0 0 230px; }
 .field-fit-content .ss-wrap{ width:230px; }
 .pr-item-adder{ display:flex; gap:12px; align-items:center; margin-bottom:16px; }
 .pr-item-adder .field{ flex:1 1 auto; }
