@@ -204,7 +204,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 /* Grup dropdown filter + search box di sisi kiri toolbar -- ini kepake di HTML tapi
    kemarin belom ke-define di CSS sama sekali, jadinya numpuk vertikal bukan sejajar */
 .produk-toolbar-search{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1 1 auto; }
-.search-box{ min-width:220px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
+.search-box{ min-width:350px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
 .search-box i{ color:var(--primary); font-size: 16px;}
 .search-box input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight: 500;}
 
@@ -219,13 +219,16 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .search-combo .search-box{
     border-top-left-radius:0; border-bottom-left-radius:0; background:#f8faff;
     border:1px solid #dce4f0; border-left:1px solid var(--border);
+    flex:1 1 auto;
 }
 /* Kalo kolom yang dipilih di "Select Target Column" itu "Branch", search box-nya diganti jadi
    multi-select Branch -- disambungin jadi 1 pill yang sama kayak search box biasa (border kiri
    dilepas, sudut kiri gak dibulet-in) biar nempel langsung ke dropdown "Branch" di sampingnya.
    Box-nya sendiri (.ss-control) sekarang class-nya PERSIS sama kayak dropdown lain (Request
-   Number, Status, dst) -- cuma ditambahin override buat nyambungin ke pill di sini. */
-.search-combo-branch{ display:flex; align-items:stretch; flex:1 1 auto; min-width:180px; }
+   Number, Status, dst) -- cuma ditambahin override buat nyambungin ke pill di sini.
+   min-width DISAMAIN persis sama .search-box (220px) -- sebelumnya cuma 180px, jadi pill-nya
+   keliatan lebih pendek dibanding pas field yang dipilih "Request Number" dkk. */
+.search-combo-branch{ display:flex; align-items:stretch; flex:1 1 auto; min-width:350px; }
 .search-combo-branch .ss-wrap{ flex:1 1 auto; }
 .search-combo-branch .ss-control{
     border-top-left-radius:0; border-bottom-left-radius:0; background:#f8faff;
