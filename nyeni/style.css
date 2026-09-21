@@ -157,11 +157,11 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
    app.js. Container-nya overflow-y:auto ASLI (native scroll browser) -- scroll-nya 100% manual
    (wheel/trackpad/scrollbar/swipe), TIDAK ADA auto-scroll/animasi apapun. Kalo <= 5 item, class
    stickyroll-active gak kepasang -- list-nya statis biasa, gak bisa/perlu di-scroll.
-   Fade atas & bawah (::before/::after) NGIKUTIN posisi scroll beneran (class .at-top/.at-bottom
-   ke-toggle sama JS pas scroll) -- fade bawah cuma nongol kalo MASIH ada konten di bawah yang
-   belum keliatan, fade atas cuma nongol kalo udah di-scroll turun dikit. Begitu udah mentok di
-   salah satu ujung, fade di ujung itu ilang -- gak lagi nutupin baris terakhir/pertama yang
-   padahal udah keliatan penuh. */
+   Fade atas/bawah (::before/::after) yang dulu ada DIHAPUS TOTAL -- gimanapun tipisnya, tetep
+   nutupin dikit baris paling atas/bawah begitu discroll (row list-nya sendiri pendek), jadi
+   baris itu keliatan beda/pudar dibanding baris lain. Sekarang penanda "masih ada konten di
+   atas/bawah" cuma scrollbar tipis (::-webkit-scrollbar-thumb di bawah) -- semua baris,
+   termasuk yang lagi di paling atas/bawah pas discroll, tampil SAMA PERSIS kayak baris lain. */
 .stickyroll-wrap{ position:relative; overflow:hidden; }
 .stickyroll-wrap.stickyroll-active{
     max-height:280px; overflow-y:auto; overflow-x:hidden;
@@ -170,18 +170,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar{ width:5px; }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-track{ background:transparent; }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-thumb{ background:#d7deea; border-radius:3px; }
-.stickyroll-wrap.stickyroll-active::before{
-    content:''; position:absolute; left:0; right:6px; top:0; height:20px; pointer-events:none;
-    background:linear-gradient(to bottom, var(--surface-1), rgba(255,255,255,0));
-    opacity:1; transition:opacity .15s ease;
-}
-.stickyroll-wrap.stickyroll-active::after{
-    content:''; position:absolute; left:0; right:6px; bottom:0; height:26px; pointer-events:none;
-    background:linear-gradient(to bottom, rgba(255,255,255,0), var(--surface-1));
-    opacity:1; transition:opacity .15s ease;
-}
-.stickyroll-wrap.stickyroll-active.at-top::before{ opacity:0; }
-.stickyroll-wrap.stickyroll-active.at-bottom::after{ opacity:0; }
 
 /* Dua card "Top Item" ditaro sejajar (berdampingan), numpuk jadi 1 kolom kalo layar sempit. */
 .dash-top-items-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
@@ -276,7 +264,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .status-badge.pending{ background:var(--warn-soft); color:var(--warn); }
 .status-badge.approved{ background:var(--success-soft); color:var(--success); }
 .status-badge.rejected{ background:var(--danger-soft); color:var(--danger); }
-.status-badge.expired{ background:#eef1f5; color:#5d6b83; }
+.status-badge.expired{ background:#eef1f5; color:var(--muted); }
 .empty-state{ text-align:center; padding:68px 20px; border:1px dashed #ccd7e8; border-radius:18px; background:rgba(255,255,255,.6); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

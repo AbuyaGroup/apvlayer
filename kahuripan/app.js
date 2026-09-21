@@ -570,19 +570,11 @@ function measureStickyrollMaxHeight(el) {
     return lastRow.offsetTop + lastRow.offsetHeight;
 }
 
-// Nyalain/matiin fade di atas & bawah container SESUAI posisi scroll SEKARANG -- bukan dekorasi
-// statis yang nempel diem di tempat yang sama. Fade ATAS cuma nongol kalo udah di-scroll turun
-// dikit (nandain ada konten yang ke-skip di atas), fade BAWAH cuma nongol kalo MASIH ada konten
-// di bawah yang belum keliatan (scrollTop belum nyampe max). Begitu udah mentok scroll paling
-// bawah, fade bawah otomatis ilang -- gak lagi nutupin baris terakhir yang padahal udah keliatan
-// penuh (ini yang bikin baris ke-5 kemarin keliatan "pudar" padahal itu baris terakhir yang valid).
-function updateStickyrollEdgeFade(el) {
-    if (!el._srActive) { el.classList.remove('at-top', 'at-bottom'); return; }
-    const max = el.scrollHeight - el.clientHeight;
-    el.classList.toggle('at-top', el.scrollTop <= 1);
-    el.classList.toggle('at-bottom', max <= 1 || el.scrollTop >= max - 1);
-}
-
+// Fade atas/bawah yang dulu ngikutin posisi scroll (toggle class at-top/at-bottom) UDAH DIHAPUS
+// -- row list-nya pendek, jadi fade-nya (gimanapun udah dikecilin/ditipisin) tetep bikin baris
+// paling atas/bawah keliatan beda/pudar dibanding baris lain begitu discroll. Penanda "masih ada
+// konten di atas/bawah" sekarang cuma scrollbar tipis bawaan (lihat .stickyroll-wrap.stickyroll-active
+// ::-webkit-scrollbar-thumb di style.css) -- gak perlu listener scroll/toggle class apa-apa lagi.
 const stickyrollDirective = {
     mounted(el, binding) {
         el._srActive = !!binding.value;
@@ -592,18 +584,13 @@ const stickyrollDirective = {
             const h = measureStickyrollMaxHeight(el);
             if (h) el.style.maxHeight = h + 'px';
         };
-        const syncAll = () => { syncMaxHeight(); updateStickyrollEdgeFade(el); };
-
-        el._srOnScroll = () => updateStickyrollEdgeFade(el);
-        el.addEventListener('scroll', el._srOnScroll, { passive: true });
 
         // ResizeObserver -- kalo lebar kolom berubah (resize window/zoom browser) yang bikin
-        // teks item ikut wrap beda jumlah baris, tinggi 5-baris-pertama & status fade ke-ukur
-        // ulang otomatis.
+        // teks item ikut wrap beda jumlah baris, tinggi 5-baris-pertama ke-ukur ulang otomatis.
         const track = el.querySelector('.stickyroll-track');
-        el._srRO = new ResizeObserver(() => syncAll());
+        el._srRO = new ResizeObserver(() => syncMaxHeight());
         if (track) el._srRO.observe(track);
-        syncAll();
+        syncMaxHeight();
     },
     updated(el, binding) {
         const nowActive = !!binding.value;
@@ -613,11 +600,9 @@ const stickyrollDirective = {
             const h = measureStickyrollMaxHeight(el);
             if (h) el.style.maxHeight = h + 'px';
         }
-        updateStickyrollEdgeFade(el);
     },
     unmounted(el) {
         if (el._srRO) el._srRO.disconnect();
-        el.removeEventListener('scroll', el._srOnScroll);
     }
 };
 
@@ -1046,6 +1031,18 @@ const app = createApp({
             const total = donutTotal.value;
             const R = 70, CX = 100, CY = 100;
             const circumference = 2 * Math.PI * R;
+            // Donat ini digambar dari BEBERAPA <circle> yang ditumpuk (satu circle per segmen,
+            // lewat stroke-dasharray/offset) -- BUKAN 1 path nyambung. Kalo segmen-segmennya
+            // nempel PAS di ujung tanpa celah, anti-aliasing browser di titik pertemuan 2 segmen
+            // bisa nge-blend/"bocor" dikit ke warna sebelahnya. Paling keliatan di sambungan
+            // segmen TERAKHIR (Expired, abu-abu) balik nyambung ke segmen PERTAMA (Pending,
+            // oranye) -- soalnya Expired digambar paling belakangan/paling atas tumpukannya,
+            // jadi abu-abunya yang nge-bleed nutupin dikit ujung oranye-nya. Fix-nya: kasih
+            // celah kecil (2 satuan keliling) di tiap pertemuan antar segmen, cuma diaktifin
+            // kalo emang ada lebih dari 1 status yang punya PR (kalo cuma 1 status doang yang
+            // ada isinya, gak perlu celah -- ring-nya emang cuma 1 warna penuh).
+            const visibleCount = DASHBOARD_STATUS_CONFIG.filter(cfg => (prStatusCounts.value[cfg.key] || 0) > 0).length;
+            const GAP = visibleCount > 1 ? 2 : 0;
             let cumulative = 0;
             return DASHBOARD_STATUS_CONFIG.map(cfg => {
                 const count = prStatusCounts.value[cfg.key] || 0;
@@ -1053,7 +1050,9 @@ const app = createApp({
                 const dash = total > 0 ? (count / total) * circumference : 0;
                 const offset = cumulative;
                 cumulative += dash;
-                // -Math.PI/2 biar segmen pertama mulai dari jam 12 (bukan jam 3, default SVG)
+                // -Math.PI/2 biar segmen pertama mulai dari jam 12 (bukan jam 3, default SVG).
+                // Posisi label & garis penghubung tetep ngikutin titik tengah segmen ASLINYA
+                // (dash penuh, sebelum dipotong buat celah) biar gak ikut geser gara-gara celah.
                 const midAngle = total > 0 ? ((offset + dash / 2) / circumference) * 2 * Math.PI - Math.PI / 2 : 0;
                 // Label persentase digeser lebih jauh dari cincin donut (labelR), dan dikasih
                 // garis penghubung ("benang") dari pinggir cincin (lineR1) ke deket label-nya
@@ -1061,6 +1060,11 @@ const app = createApp({
                 const labelR = R + 40;
                 const lineR1 = R + 15;
                 const lineR2 = labelR - 12;
+                // Busur yang BENERAN digambar sedikit lebih pendek dari dash aslinya (disisain
+                // celah GAP simetris di kedua ujungnya) & titik mulainya digeser maju setengah
+                // celah, biar posisi & lebar "slot" sudutnya tetep sama kayak sebelumnya.
+                const renderDash = Math.max(dash - GAP, 0);
+                const renderOffset = offset + (dash - renderDash) / 2;
                 return {
                     key: cfg.key,
                     label: cfg.label,
@@ -1069,8 +1073,8 @@ const app = createApp({
                     bg: cfg.bg,
                     count,
                     pct,
-                    dashArray: `${dash} ${circumference - dash}`,
-                    dashOffset: -offset,
+                    dashArray: `${renderDash} ${circumference - renderDash}`,
+                    dashOffset: -renderOffset,
                     labelX: CX + labelR * Math.cos(midAngle),
                     labelY: CY + labelR * Math.sin(midAngle),
                     lineX1: CX + lineR1 * Math.cos(midAngle),
