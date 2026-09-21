@@ -419,10 +419,10 @@
                                     <td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
                                     <td><span class="status-badge" :class="pr.status.toLowerCase()">{{ pr.status }}</span></td>
                                     <td style="text-align: right;">
-                                        <button @click="openEditPR(pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px;">
+                                        <a :href="'#edit-pr/' + pr.id" @click="goToEditPR($event, pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;">
                                             <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
                                             {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? '' : '' }}
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                                 <tr v-if="filteredPRs.length === 0"><td colspan="7" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Request.</td></tr>

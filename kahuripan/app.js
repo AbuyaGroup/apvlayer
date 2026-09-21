@@ -1447,10 +1447,34 @@ const app = createApp({
             editPRNewItemProductId.value = '';
             editPRNewItemQty.value = null;
             currentTab.value = 'edit-pr';
+            // #hash-nya nunjuk ke PR spesifik ini (bukan cuma 'edit-pr' doang) -- biar tombol
+            // Edit/View di baris tabel punya "alamat" sendiri-sendiri (klik kanan -> Buka di tab
+            // baru / Salin alamat link beneran nyampe ke Detail PR yang sama, bukan cuma ke tab
+            // Purchase Request kosong).
+            try { history.replaceState(null, '', '#edit-pr/' + pr.id); } catch (e) {}
         };
         const backFromEditPR = () => {
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
+        };
+        // Dipake di @click tombol Edit/View tiap baris PR -- href-nya udah nunjuk ke #edit-pr/<id>
+        // (lihat markup di index.html), sama kayak goToTab: klik kiri polos pindah di halaman yang
+        // sama, Ctrl/Cmd/Shift+klik / klik kanan "Buka di tab baru" dibiarin jalan normal ke href-nya.
+        const goToEditPR = (e, pr) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            openEditPR(pr);
+        };
+        // Kalo #hash di URL nunjuk ke "edit-pr/<id>" yang valid (misal dibuka dari link "Buka di
+        // tab baru"), langsung buka Detail PR itu. Dipanggil abis fetchData() -- butuh prs.value
+        // udah keisi dulu, soalnya PR-nya dicari dari situ.
+        const tryOpenPRFromHash = () => {
+            const h = (window.location.hash || '').replace('#', '');
+            const m = h.match(/^edit-pr\/(\d+)$/);
+            if (!m) return false;
+            const pr = prs.value.find(p => p.id === Number(m[1]));
+            if (pr) { openEditPR(pr); return true; }
+            return false;
         };
 
         // "Sentuh" PR induk -- update updated_at/updated_by-nya ke sekarang & user yang lagi
@@ -1721,13 +1745,17 @@ const app = createApp({
                 userBrand.value = brand;
                 restoreLastTab(role); // <-- ini yang bikin tetep stay di tab yang sama pas refresh
                 startIdleWatcher();
-                fetchData();
+                await fetchData();
+                // Baru dicek ABIS fetchData selesai -- kalo hash-nya nunjuk ke Detail PR spesifik
+                // (#edit-pr/<id>) yang valid, ini nimpa balik tab yang barusan dibalikin restoreLastTab().
+                tryOpenPRFromHash();
             }
 
             // Jaga-jaga: kalo user ngetik/ganti #hash manual di address bar pas udah login
-            // (bukan lewat klik sidebar), ikutin pindah ke tab yang sesuai.
+            // (bukan lewat klik sidebar/tombol Edit), ikutin pindah ke tab yang sesuai.
             window.addEventListener('hashchange', () => {
                 if (!isLoggedIn.value) return;
+                if (tryOpenPRFromHash()) return;
                 const hashTab = tabFromHash();
                 if (hashTab && (hashTab !== 'master-hub' || userRole.value === 'Master')) {
                     currentTab.value = hashTab;
@@ -1751,7 +1779,7 @@ const app = createApp({
             SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, PIC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
-            openEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
+            openEditPR, goToEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
             viewingPO, viewingPOItems, openViewPO, backFromViewPO,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
             handleFileUpload, handleProductFileUpload,
