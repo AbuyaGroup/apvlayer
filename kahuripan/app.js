@@ -656,6 +656,69 @@ const app = createApp({
             idleTimer = null;
         };
 
+        // ============================================================
+        // SINKRON SESI ANTAR TAB -- sesi Supabase sengaja disimpen di sessionStorage (liat komentar
+        // di atas SUPABASE_URL), biar begitu SEMUA tab ditutup, otomatis ke-anggep logout. Tapi
+        // sessionStorage itu per-tab, jadi tab BARU (misal dibuka lewat klik-kanan "Buka di tab
+        // baru" di menu sidebar / tombol Edit PR) gak kebagian sesi yang sama & kepaksa diminta
+        // login lagi, padahal user aslinya masih login di tab lain.
+        //
+        // Fix-nya: pas tab baru kebuka & belom ada sesi sendiri, dia "nanya" ke tab lain lewat
+        // localStorage -- dipake CUMA sebagai jalur pesan sesaat antar tab (browser "storage" event
+        // cuma nyala di tab LAIN, gak di tab yang nulis), bukan buat nyimpen sesi beneran, makanya
+        // langsung dihapus lagi abis dipake. Kalo ada tab lain yang masih login, dia "jawab" ngasih
+        // access/refresh token-nya, terus dipasang ke client Supabase tab ini lewat setSession() --
+        // gak perlu login ulang. Kalo GAK ADA tab lain yang lagi login (misal semua tab browser abis
+        // ditutup terus buka baru), gak ada yang jawab dalam 500ms -> tetep diminta login kayak
+        // biasa, jadi auto-logout pas semua tab ditutup TETAP jalan sesuai niat awal.
+        const SESSION_SYNC_REQUEST_KEY = 'apv_session_sync_request';
+        const SESSION_SYNC_RESPONSE_PREFIX = 'apv_session_sync_response_';
+
+        // Tab ini "jawab" kalo ada tab LAIN yang nanya (minta sesi) & tab ini emang lagi login.
+        window.addEventListener('storage', async (ev) => {
+            if (ev.key !== SESSION_SYNC_REQUEST_KEY || !ev.newValue || !isLoggedIn.value) return;
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) return;
+                const responseKey = SESSION_SYNC_RESPONSE_PREFIX + ev.newValue;
+                localStorage.setItem(responseKey, JSON.stringify({
+                    access_token: session.access_token,
+                    refresh_token: session.refresh_token
+                }));
+                // Numpang lewat doang -- bukan tempat nyimpen sesi, jadi dibersihin lagi sesaat abis itu.
+                setTimeout(() => { try { localStorage.removeItem(responseKey); } catch (e) {} }, 2000);
+            } catch (e) {}
+        });
+
+        // Minta sesi ke tab lain (dipanggil pas tab ini kebuka & sessionStorage-nya sendiri kosong).
+        // Nunggu maksimal 500ms buat jawaban; kalo gak ada yang jawab, resolve null.
+        const requestSessionFromOtherTabs = () => {
+            return new Promise((resolve) => {
+                const token = Date.now() + '_' + Math.random().toString(36).slice(2);
+                const responseKey = SESSION_SYNC_RESPONSE_PREFIX + token;
+                let settled = false;
+                const finish = (result) => {
+                    if (settled) return;
+                    settled = true;
+                    window.removeEventListener('storage', onStorage);
+                    clearTimeout(timer);
+                    resolve(result);
+                };
+                const onStorage = (ev) => {
+                    if (ev.key !== responseKey || !ev.newValue) return;
+                    try {
+                        const parsed = JSON.parse(ev.newValue);
+                        localStorage.removeItem(responseKey);
+                        finish(parsed);
+                    } catch (e) { finish(null); }
+                };
+                window.addEventListener('storage', onStorage);
+                const timer = setTimeout(() => finish(null), 500);
+                try { localStorage.setItem(SESSION_SYNC_REQUEST_KEY, token); } catch (e) { finish(null); return; }
+                setTimeout(() => { try { localStorage.removeItem(SESSION_SYNC_REQUEST_KEY); } catch (e) {} }, 600);
+            });
+        };
+
         // Bersihin semua state login (dipake bareng sama expiry maupun logout manual)
         const clearSessionState = () => {
             isLoggedIn.value = false;
@@ -1736,7 +1799,22 @@ const app = createApp({
                 if (savedBrand) selectedBrand.value = savedBrand;
             } catch (e) {}
 
-            const { data: { session } } = await supabaseClient.auth.getSession();
+            let { data: { session } } = await supabaseClient.auth.getSession();
+
+            // Tab ini belom punya sesi sendiri (sessionStorage-nya kosong) -- coba minta ke tab
+            // lain yang mungkin masih login (kasus paling umum: tab ini abis kebuka dari klik-kanan
+            // "Buka di tab baru" di sidebar/tombol Edit).
+            if (!session) {
+                const shared = await requestSessionFromOtherTabs();
+                if (shared?.access_token && shared?.refresh_token) {
+                    const { data, error } = await supabaseClient.auth.setSession({
+                        access_token: shared.access_token,
+                        refresh_token: shared.refresh_token
+                    });
+                    if (!error) session = data.session;
+                }
+            }
+
             if (session?.user?.email) {
                 const { role, brand } = await fetchRoleAndBrand(session.user.email);
                 isLoggedIn.value = true;
