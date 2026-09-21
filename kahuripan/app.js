@@ -699,15 +699,38 @@ const app = createApp({
         };
 
         const currentTab = ref('dashboard');
-        // Simpen tab yang lagi dibuka biar refresh halaman gak balik ke Dashboard lagi
+        // 4 menu utama di sidebar -- ini doang yang punya URL (#hash) sendiri. Tab lain
+        // (buat-pr/edit-pr/master-branch/master-product/view-po) butuh data spesifik (PR/PO/produk
+        // yang lagi dibuka) yang cuma ada di memori browser, jadi gak bisa "dibuka lewat link".
+        const SIDEBAR_TABS = ['dashboard', 'daftar-pr', 'daftar-po', 'master-hub'];
+        // Baca tab dari #hash di URL (misal dibuka dari link "Open in new tab") -- null kalo
+        // gak ada / gak valid, biar fallback normal (localStorage / default dashboard) yang jalan.
+        const tabFromHash = () => {
+            const h = (window.location.hash || '').replace('#', '');
+            return SIDEBAR_TABS.includes(h) ? h : null;
+        };
+        // Simpen tab yang lagi dibuka biar refresh halaman gak balik ke Dashboard lagi, DAN
+        // update #hash di address bar (replaceState -- gak nambah entry history baru) buat 4 menu
+        // utama, biar url-nya "jujur" nunjuk ke tab yang lagi kebuka (bisa di-bookmark/di-share/
+        // klik kanan "Buka di tab baru" dari sidebar dan bener-bener nyampe ke tab yang sama).
         watch(currentTab, (val) => {
             try { localStorage.setItem('lastActiveTab', val); } catch (e) {}
+            try {
+                if (SIDEBAR_TABS.includes(val)) history.replaceState(null, '', '#' + val);
+            } catch (e) {}
         });
         // Balikin tab terakhir, tapi tolak tab Master Data kalo role-nya bukan Master
         // (jaga-jaga di browser bareng: akun Master abis buka Master Data, logout,
         // akun AM login di browser yang sama -- jangan sampe ke-lempar ke tab itu)
         const restoreLastTab = (role) => {
             try {
+                // #hash di URL (misal dari link yang di-klik-kanan "Buka di tab baru") menang
+                // duluan dibanding tab terakhir yang kesimpen di localStorage.
+                const hashTab = tabFromHash();
+                if (hashTab && (hashTab !== 'master-hub' || role === 'Master')) {
+                    currentTab.value = hashTab;
+                    return;
+                }
                 const saved = localStorage.getItem('lastActiveTab');
                 // 'edit-pr'/'view-po' gak di-restore -- editingPR/viewingPO cuma ada di memori
                 // browser, ilang pas refresh, jadi kalo dipaksa balik ke tab ini layarnya bakal kosong
@@ -715,6 +738,17 @@ const app = createApp({
                     currentTab.value = saved;
                 }
             } catch (e) {}
+        };
+        // Dipake di @click link sidebar -- link-nya sekarang punya href="#tab" beneran (bukan
+        // cuma div/@click doang) biar browser ngeh ada "alamat" tujuannya, jadi klik-kanan-nya
+        // otomatis punya pilihan "Buka link di tab baru" / "Salin alamat link" kayak link biasa.
+        // Klik kiri polos -> tetep pindah tab di HALAMAN YANG SAMA (SPA, gak reload) makanya
+        // di-preventDefault. Tapi Ctrl/Cmd/Shift+klik atau klik tengah/kanan (buat buka tab baru /
+        // window baru / lewat menu klik-kanan) SENGAJA DIBIARIN jalan normal ke href-nya.
+        const goToTab = (e, tab) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            currentTab.value = tab;
         };
         const prs = ref([]);
         const pos = ref([]);
@@ -1689,13 +1723,23 @@ const app = createApp({
                 startIdleWatcher();
                 fetchData();
             }
+
+            // Jaga-jaga: kalo user ngetik/ganti #hash manual di address bar pas udah login
+            // (bukan lewat klik sidebar), ikutin pindah ke tab yang sesuai.
+            window.addEventListener('hashchange', () => {
+                if (!isLoggedIn.value) return;
+                const hashTab = tabFromHash();
+                if (hashTab && (hashTab !== 'master-hub' || userRole.value === 'Master')) {
+                    currentTab.value = hashTab;
+                }
+            });
         });
 
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
-            currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
+            currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,
             prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,

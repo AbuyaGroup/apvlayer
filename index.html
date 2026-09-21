@@ -134,14 +134,14 @@
             </div>
 
             <ul class="sidebar-menu">
-                <li><a :class="{ active: currentTab === 'dashboard' }" @click="currentTab = 'dashboard'"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
-                <li><a :class="{ active: currentTab === 'daftar-pr' || currentTab === 'buat-pr' }" @click="currentTab = 'daftar-pr'"><i class="bi bi-file-earmark-text"></i> Purchase Request</a></li>
-                <li><a :class="{ active: currentTab === 'daftar-po' }" @click="currentTab = 'daftar-po'"><i class="bi bi-cart-check"></i> Purchase Order</a></li>
+                <li><a href="#dashboard" :class="{ active: currentTab === 'dashboard' }" @click="goToTab($event, 'dashboard')"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li><a href="#daftar-pr" :class="{ active: currentTab === 'daftar-pr' || currentTab === 'buat-pr' }" @click="goToTab($event, 'daftar-pr')"><i class="bi bi-file-earmark-text"></i> Purchase Request</a></li>
+                <li><a href="#daftar-po" :class="{ active: currentTab === 'daftar-po' }" @click="goToTab($event, 'daftar-po')"><i class="bi bi-cart-check"></i> Purchase Order</a></li>
 
                 <!-- MENU MASTER HANYA MUNCUL JIKA ROLE == 'Master' -->
                 <template v-if="userRole === 'Master'">
                     <div class="px-3 mb-2 mt-4 text-muted small fw-bold" style="font-size: 11px;">The Master</div>
-                    <li><a :class="{ active: currentTab.includes('master') }" @click="currentTab = 'master-hub'"><i class="bi bi-database-fill-gear"></i> Master Data</a></li>
+                    <li><a href="#master-hub" :class="{ active: currentTab.includes('master') }" @click="goToTab($event, 'master-hub')"><i class="bi bi-database-fill-gear"></i> Master Data</a></li>
                 </template>
             </ul>
         </div>
