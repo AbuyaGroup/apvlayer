@@ -10,21 +10,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="nyeni/style.css">
-    <!-- Flatpickr -- kalender buat Date Range Filter (dari-sampe) di Daftar PR & Daftar PO -->
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
-    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- Supabase JS client -- ini yang gantiin backend Flask/FastAPI -->
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-    <!-- SheetJS -- buat baca file Excel (.xlsx) langsung di browser -->
+
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 <body>
 
 <div id="app">
-    <!-- ============ TOAST NOTIFIKASI (ganti alert()) ============ -->
+
     <div class="toast-stack">
         <TransitionGroup name="toast">
             <div v-for="t in toasts" :key="t.id" class="toast-item" :class="'toast-' + t.type">
@@ -40,7 +40,6 @@
         </TransitionGroup>
     </div>
 
-    <!-- ============ CONFIRM MODAL (ganti confirm()) ============ -->
     <Transition name="modal-pop">
         <div v-if="confirmState" class="confirm-backdrop" @click.self="resolveConfirm(false)">
             <div class="confirm-card">
@@ -55,9 +54,8 @@
         </div>
     </Transition>
 
-    <!-- ============ SEBELUM LOGIN ============ -->
     <div v-if="!isLoggedIn">
-        <!-- ============ SCREEN PILIH BRAND ============ -->
+
         <div v-if="!selectedBrand" id="loginScreen">
             <div class="login-card">
                 <div class="login-brand">
@@ -85,7 +83,6 @@
             </div>
         </div>
 
-        <!-- ============ SCREEN LOGIN ============ -->
         <div v-else id="loginScreen">
             <div class="login-card">
                 <button type="button" class="btn-ghost mb-3" @click="backToBrandPicker" style="padding:6px 12px; font-size:12px;">
@@ -115,9 +112,8 @@
         </div>
     </div>
 
-    <!-- ============ MAIN APP ============ -->
     <div v-else class="d-flex-layout">
-        <!-- SIDEBAR -->
+
         <div class="sidebar">
             <div class="sidebar-brand">
                 <div class="mark"><i class="bi bi-box-seam"></i></div>
@@ -138,7 +134,6 @@
                 <li><a href="#daftar-pr" :class="{ active: currentTab === 'daftar-pr' || currentTab === 'buat-pr' }" @click="goToTab($event, 'daftar-pr')"><i class="bi bi-file-earmark-text"></i> Purchase Request</a></li>
                 <li><a href="#daftar-po" :class="{ active: currentTab === 'daftar-po' }" @click="goToTab($event, 'daftar-po')"><i class="bi bi-cart-check"></i> Purchase Order</a></li>
 
-                <!-- MENU MASTER HANYA MUNCUL JIKA ROLE == 'Master' -->
                 <template v-if="userRole === 'Master'">
                     <div class="px-3 mb-2 mt-4 text-muted small fw-bold" style="font-size: 11px;">The Master</div>
                     <li><a href="#master-hub" :class="{ active: currentTab.includes('master') }" @click="goToTab($event, 'master-hub')"><i class="bi bi-database-fill-gear"></i> Master Data</a></li>
@@ -146,13 +141,12 @@
             </ul>
         </div>
 
-        <!-- MAIN CONTENT -->
         <div class="main-content">
             <transition name="fade" mode="out-in">
-                <!-- TAB: HUB MASTER DATA -->
+
                 <div v-if="currentTab === 'master-hub'" key="master-hub">
                     <h2 style="margin-bottom: 5px;">Master Data</h2>
-                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Kelola data master untuk Branch dan Product di sini.</p>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Kelola data master untuk Branch, Product, dan PIC di sini.</p>
 
                     <div class="dc-grid" style="max-width: 800px;">
                         <div class="dc-card" @click="currentTab = 'master-branch'">
@@ -163,10 +157,13 @@
                             <div class="dc-icon" style="background: var(--warn-soft);"><i class="bi bi-box-seam" style="color: var(--warn);"></i></div>
                             <h3 class="name">Master Product</h3>
                         </div>
+                        <div class="dc-card" @click="currentTab = 'master-pic'">
+                            <div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-person-badge" style="color: var(--success);"></i></div>
+                            <h3 class="name">Master PIC</h3>
+                        </div>
                     </div>
                 </div>
 
-                <!-- TAB: MASTER BRANCH -->
                 <div v-else-if="currentTab === 'master-branch'" key="master-branch">
                     <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
                     <h2 style="margin-bottom: 24px;">Master Data - Branch</h2>
@@ -202,7 +199,7 @@
                                     </tr></thead>
                                     <tbody>
                                         <template v-for="b in filteredBranches" :key="b.id">
-                                            <!-- MODE EDIT -->
+
                                             <tr v-if="editingBranchId === b.id">
                                                 <td></td>
                                                 <td style="color: var(--muted);">{{ b.id }}</td>
@@ -220,7 +217,7 @@
                                                     <button class="btn-icon" @click="cancelEditBranch" title="Batal"><i class="bi bi-x-lg"></i></button>
                                                 </td>
                                             </tr>
-                                            <!-- MODE VIEW -->
+
                                             <tr v-else>
                                                 <td><input type="checkbox" :checked="selectedBranchIds.includes(b.id)" @change="toggleBranchSelect(b.id)"></td>
                                                 <td style="color: var(--muted);">{{ b.id }}</td>
@@ -241,7 +238,6 @@
                     </div>
                 </div>
 
-                <!-- TAB: MASTER PRODUCT -->
                 <div v-else-if="currentTab === 'master-product'" key="master-product">
                     <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
                     <h2 style="margin-bottom: 24px;">Master Data - Product</h2>
@@ -277,7 +273,7 @@
                                     </tr></thead>
                                     <tbody>
                                         <template v-for="p in filteredProducts" :key="p.id">
-                                            <!-- MODE EDIT -->
+
                                             <tr v-if="editingProductId === p.id">
                                                 <td></td>
                                                 <td style="color: var(--muted);">{{ p.id }}</td>
@@ -295,7 +291,7 @@
                                                     <button class="btn-icon" @click="cancelEditProduct" title="Batal"><i class="bi bi-x-lg"></i></button>
                                                 </td>
                                             </tr>
-                                            <!-- MODE VIEW -->
+
                                             <tr v-else>
                                                 <td><input type="checkbox" :checked="selectedProductIds.includes(p.id)" @change="toggleProductSelect(p.id)"></td>
                                                 <td style="color: var(--muted);">{{ p.id }}</td>
@@ -316,7 +312,96 @@
                     </div>
                 </div>
 
-                <!-- TAB: BUAT PR -->
+                <div v-else-if="currentTab === 'master-pic'" key="master-pic">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - PIC</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); margin-bottom: 20px; overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New PIC</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>PIC</label>
+                                    <input type="text" v-model="addPicForm.pic_name" placeholder="Nama PIC">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Shipping</label>
+                                    <searchable-select v-model="addPicForm.shipping" :options="PIC_SHIPPING_SELECT_OPTIONS" placeholder="-- Pilih Shipping --"></searchable-select>
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="addPicForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="Semua Brand"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="addPic">
+                                    <i class="bi bi-plus-lg me-1"></i> Tambah PIC
+                                </button>
+                            </div>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah PIC lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>PIC</b> (wajib), <b>SHIPPING</b> (opsional), <b>BRAND</b> (opsional -- kosongin kalo PIC berlaku buat semua brand).</p>
+                                <input type="file" ref="picFileInput" @change="handlePicFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.picFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama PIC..." v-model="picSearchQuery">
+                            </div>
+                            <div v-if="selectedPicIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedPicIds.length }} PIC dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedPicIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deletePics(selectedPicIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allPicsSelected" @change="toggleSelectAllPics"></th>
+                                        <th>ID</th><th>PIC</th><th>Shipping</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template v-for="p in filteredPics" :key="p.id">
+
+                                            <tr v-if="editingPicId === p.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td><input type="text" v-model="editPicForm.pic_name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td>
+                                                    <searchable-select v-model="editPicForm.shipping" :options="PIC_SHIPPING_SELECT_OPTIONS" placeholder="-"></searchable-select>
+                                                </td>
+                                                <td>
+                                                    <searchable-select v-model="editPicForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="Semua Brand"></searchable-select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditPic(p.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditPic" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedPicIds.includes(p.id)" @change="togglePicSelect(p.id)"></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td class="fw-bold">{{ p.pic_name }}</td>
+                                                <td>{{ p.shipping || '-' }}</td>
+                                                <td>{{ p.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditPic(p)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deletePics([p.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredPics.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada PIC yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div v-else-if="currentTab === 'buat-pr'" key="buat-pr">
                     <h2 style="margin-bottom: 24px;">Create Purchase Request</h2>
                     <div class="pr-form-card">
@@ -330,7 +415,7 @@
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
                                 <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
-                                    <searchable-select v-model="form.pic" :options="PIC_OPTIONS" placeholder="-- Pilih PIC --"></searchable-select>
+                                    <searchable-select v-model="form.pic" :options="picOptions" placeholder="-- Pilih PIC --"></searchable-select>
                                 </div>
                             </div>
 
@@ -348,7 +433,7 @@
                             <div class="pr-item-list">
                                 <div v-if="form.items.length === 0" class="pr-item-empty">Belum ada item ditambahkan.</div>
                                 <template v-for="(it, idx) in form.items" :key="it.product_id">
-                                    <!-- MODE EDIT -->
+
                                     <div v-if="editingFormItemIdx === idx" class="pr-item-row pr-item-row-edit">
                                         <div class="field" style="margin-bottom:0; flex:1 1 auto;">
                                             <searchable-select v-model="editFormItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
@@ -359,7 +444,7 @@
                                         <button type="button" class="btn-icon success" @click="saveEditFormItem(idx)" title="Simpan"><i class="bi bi-check-lg"></i></button>
                                         <button type="button" class="btn-icon" @click="cancelEditFormItem" title="Batal"><i class="bi bi-x-lg"></i></button>
                                     </div>
-                                    <!-- MODE VIEW -->
+
                                     <div v-else class="pr-item-row">
                                         <div><span class="item-name">{{ it.item_name }}</span><span class="item-qty">x{{ it.qty }}</span></div>
                                         <div style="display:flex; gap:6px;">
@@ -379,7 +464,6 @@
                     </div>
                 </div>
 
-                <!-- TAB: DAFTAR PR -->
                 <div v-else-if="currentTab === 'daftar-pr'" key="daftar-pr">
                     <h2 style="margin-bottom: 24px;">Purchase Request</h2>
                     <div class="produk-toolbar">
@@ -431,7 +515,6 @@
                     </div>
                 </div>
 
-                <!-- TAB: DETAIL / EDIT PR (AM/Master review item yang direquest SM) -->
                 <div v-else-if="currentTab === 'edit-pr' && editingPR" key="edit-pr">
                     <button class="btn-ghost mb-4" @click="backFromEditPR" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
                     <h2 style="margin-bottom: 4px;">Detail Purchase Request</h2>
@@ -484,7 +567,6 @@
                     </div>
                 </div>
 
-                <!-- TAB: DAFTAR PO -->
                 <div v-else-if="currentTab === 'daftar-po'" key="daftar-po">
                     <h2 style="margin-bottom: 24px;">Purchase Order</h2>
                     <div class="produk-toolbar">
@@ -498,7 +580,10 @@
                                 <div v-else class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>
                             </div>
                         </div>
-                        <date-range-filter v-model="poDateRange"></date-range-filter>
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <date-range-filter v-model="poDateRange"></date-range-filter>
+                            <button class="btn-primary" @click="exportAllPOExcel"><i class="bi bi-file-earmark-excel me-1"></i>Export</button>
+                        </div>
                     </div>
                     <div class="produk-table-wrap table-scroll">
                         <table class="produk-table">
@@ -527,9 +612,11 @@
                     </div>
                 </div>
 
-                <!-- TAB: VIEW DETAIL PO (read-only) -->
                 <div v-else-if="currentTab === 'view-po' && viewingPO" key="view-po">
-                    <button class="btn-ghost mb-4" @click="backFromViewPO" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                        <button class="btn-ghost" @click="backFromViewPO" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                        <button class="btn-primary" @click="exportPOExcel(viewingPO)"><i class="bi bi-file-earmark-excel me-1"></i> Export Excel</button>
+                    </div>
                     <h2 style="margin-bottom: 4px;">Detail Purchase Order</h2>
                     <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px; font-family: 'IBM Plex Mono', monospace;">{{ viewingPO.po_number }}</p>
 
@@ -558,8 +645,6 @@
                     </div>
                 </div>
 
-                <!-- TAB: DASHBOARD (juga jadi fallback default kalo currentTab lagi gak cocok sama tab manapun,
-                     misal 'edit-pr' abis di-refresh tapi editingPR-nya udah null) -->
                 <div v-else key="dashboard">
                     <div class="dash-header-row">
                         <h2>Dashboard Overview</h2>
@@ -569,7 +654,6 @@
                         </div>
                     </div>
 
-                    <!-- DONUT CHART STATUS PR -->
                     <div class="dash-donut-card">
                         <div class="dash-donut-wrap">
                             <svg viewBox="0 0 200 200" class="dash-donut-svg">
@@ -598,7 +682,6 @@
                         </div>
                     </div>
 
-                    <!-- NOTIFIKASI: PR HAMPIR EXPIRED -->
                     <div class="dash-section-card">
                         <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Expiring Purchase Requests</div>
                         <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
@@ -615,7 +698,6 @@
                         </div>
                     </div>
 
-                    <!-- TOP ITEM BY COUNT OF PO & BY COUNT OF QUANTITY -->
                     <div class="dash-top-items-grid">
                         <div class="dash-section-card">
                             <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>

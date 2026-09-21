@@ -1,17 +1,5 @@
 const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
-// ============================================================
-// POPUP NOTIFIKASI CUSTOM -- ganti alert()/confirm() bawaan browser (yang jelek &
-// blocking) sama popup ala app ini sendiri.
-// - toast(message, type) -- ganti alert(). type: 'success' | 'error' | 'warn' | 'info'.
-//   Muncul di kanan-bawah, ilang sendiri, bisa ditutup manual juga.
-// - confirmDialog(message, opts) -- ganti confirm(). Return Promise<boolean>, jadi
-//   PAKE "await" di depannya. opts: { danger: true } buat tombol konfirmasi warna
-//   merah (aksi ngerusak/hapus), confirmLabel buat ganti teks tombolnya
-//   (default "Ya, Lanjutkan").
-// State-nya taro di luar setup() (module-level) biar konsisten satu-satunya di
-// seluruh app, terus di-expose lewat return di setup() biar kepake di template.
-// ============================================================
 const toasts = ref([]);
 let toastSeq = 0;
 function toast(message, type = 'info') {
@@ -23,7 +11,7 @@ function dismissToast(id) {
     toasts.value = toasts.value.filter(t => t.id !== id);
 }
 
-const confirmState = ref(null); // { message, danger, confirmLabel, resolve } -- null = lagi gak ada dialog kebuka
+const confirmState = ref(null);
 function confirmDialog(message, opts = {}) {
     return new Promise((resolve) => {
         confirmState.value = {
@@ -41,50 +29,19 @@ function resolveConfirm(result) {
     }
 }
 
-// ============================================================
-// KONFIGURASI SUPABASE -- GANTI 2 BARIS INI
-// Ambil dari: Supabase Dashboard > Project Settings > API
-// PAKE "anon" "public" key -- JANGAN PERNAH pake service_role di sini,
-// soalnya file JS ini kebaca semua orang yang buka website-nya.
-// ============================================================
 const SUPABASE_URL = "https://onruaqagzmeiyvpvjhve.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ucnVhcWFnem1laXl2cHZqaHZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTM4NTAsImV4cCI6MjEwNDQyOTg1MH0._LF6NqW1uvcz2lq-d8LY2GOcyUak7M592wNhA7uG7Rk";
 
-// Session Supabase sengaja disimpen di sessionStorage (BUKAN localStorage default) --
-// sessionStorage otomatis ke-hapus browser sendiri begitu TAB-nya ditutup, jadi begitu
-// dibuka lagi (tab baru/browser baru) otomatis balik ke layar login, gak perlu timer/event
-// listener tambahan yang gak reliable (browser gak bisa bedain "nutup tab" vs "refresh").
-// Refresh (F5) di tab yang SAMA tetep aman, sessionStorage-nya gak ilang -- cuma nutup
-// tab/browser yang bikin harus login ulang.
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { storage: window.sessionStorage }
 });
 
-// Bikin nomor PR/PO berdasarkan TANGGAL dibuat (bukan random/jam), format: PREFIX-DDMMYYYY-NN.
-// Contoh: PR-16092026-01, PO-16092026-01.
-//
-// NN di belakang itu nomor urut ke-berapa di tanggal itu -- WAJIB ada soalnya kolom
-// pr_number/po_number itu UNIQUE di database, dan lebih dari 1 PR/PO di hari yang
-// sama itu kejadian normal (bukan edge case), jadi tanggal doang gak cukup.
-//
-// Nomor urutnya digenerate lewat FUNCTION DI DATABASE (generate_doc_number, liat
-// schema.sql / add_soc_audit_fields_migration.sql), bukan dihitung manual di sini.
-// Sengaja gitu soalnya kalo dihitung manual (query COUNT PR hari ini, +1) ada 2 bug:
-// 1. RLS bikin user brand-scoped (AM/SM) cuma "liat" PR/PO brand-nya sendiri pas
-//    query -- jadi Almaz Fried Chicken & Kebuli Abuya yang sama-sama bikin PR
-//    pertama di hari yang sama bakal dapet nomor SAMA (masing-masing ngitung
-//    "punya sendiri" mulai dari 0) terus nabrak pas disimpen.
-// 2. 2 orang submit bebarengan juga bisa ngitung angka final yang sama (race
-//    condition).
-// Function di database gak kena 2 masalah itu (baca/tulis ke tabel counter
-// terpisah yang gak di-RLS per-brand, dan atomik lewat row lock Postgres).
 async function generateNumber(prefix) {
     const { data, error } = await supabaseClient.rpc('generate_doc_number', { p_prefix: prefix });
     if (error) throw error;
     return data;
 }
 
-// Cari kolom di data Excel biarpun beda kapital/spasi/underscore
 function findCol(row, ...candidates) {
     const normalize = (s) => String(s).trim().toLowerCase().replace(/[\s_]/g, '');
     const keys = Object.keys(row);
@@ -104,17 +61,8 @@ function deriveBrandFromBranchName(branchName) {
     return null;
 }
 
-// ============================================================
-// SESSION EXPIRATION -- otomatis logout kalo user gak ada aktivitas
-// sekian lama. Ganti angka ini kalo mau lebih pendek/panjang.
-// ============================================================
 const SESSION_TIMEOUT_MINUTES = 30;
 
-// ============================================================
-// KOMPONEN DROPDOWN CUSTOM -- bisa di-search & scroll, ganti <select> biasa
-// dipake di semua dropdown yang isinya banyak (Cabang, Barang, Filter Status).
-// Props: modelValue (v-model), options: [{ value, label }], placeholder
-// ============================================================
 const SearchableSelect = {
     props: {
         modelValue: { default: '' },
@@ -191,19 +139,6 @@ const SearchableSelect = {
     }
 };
 
-// ============================================================
-// KOMPONEN DROPDOWN MULTISELECT -- checkbox list buat milih LEBIH DARI SATU opsi sekaligus
-// (dipake buat filter Branch di Daftar PR/PO & Dashboard). Strukturnya SENGAJA disamain persis
-// kayak SearchableSelect (pake class ss-wrap/ss-control/ss-panel/ss-search/ss-options/ss-empty
-// yang SAMA, bukan bikin class sendiri) -- biar box-nya (padding, tinggi, warna, posisi chevron)
-// keliatan IDENTIK sama dropdown lain (Request Number, Status, dst), gak ada bedanya. Search
-// buat nyaring opsi juga ditaro DI DALEM PANEL (.ss-search) pas kebuka, sama persis kayak
-// SearchableSelect versi :searchable="true", bukan input nempel di box utamanya.
-// Bedanya cuma: modelValue-nya ARRAY, box utamanya nampilin RINGKASAN teks doang (bukan chip
-// satu-satu) biar box-nya SELALU 1 baris & UKURANNYA GAK BERUBAH walau kepilih banyak cabang,
-// dan checkbox-nya BARU ke-apply (emit ke parent) pas tombol "Apply" di-klik / di-Clear.
-// Props: modelValue (array), options: [{ value, label }], placeholder
-// ============================================================
 const MultiSelectDropdown = {
     props: {
         modelValue: { type: Array, default: () => [] },
@@ -262,8 +197,6 @@ const MultiSelectDropdown = {
             return props.modelValue.length + ' dipilih';
         });
 
-        // Nyaring TAMPILAN list opsi doang (berdasarkan ketikan di search box DALEM panel) --
-        // gak ngaruh ke pending/modelValue.
         const filteredOptions = computed(() => {
             if (!searchQuery.value) return props.options;
             const q = searchQuery.value.toLowerCase();
@@ -274,7 +207,7 @@ const MultiSelectDropdown = {
         const toggleOpen = () => {
             isOpen.value = !isOpen.value;
             if (isOpen.value) {
-                pending.value = [...props.modelValue]; // reset ke selection terakhir tiap dibuka
+                pending.value = [...props.modelValue];
                 searchQuery.value = '';
                 nextTick(() => searchInput.value && searchInput.value.focus());
             }
@@ -299,7 +232,6 @@ const MultiSelectDropdown = {
     }
 };
 
-// Bikin format tanggal Date -> 'YYYY-MM-DD' (dipake barengan sama DateRangeFilter & DatePickerField)
 function dateToISO(d) {
     if (!d) return '';
     const yyyy = d.getFullYear();
@@ -308,13 +240,6 @@ function dateToISO(d) {
     return `${yyyy}-${mm}-${dd}`;
 }
 
-// "Hari ini" versi WIB (UTC+7, gak ada DST) -- BUKAN versi timezone device yang lagi buka app.
-// Indonesia punya 3 zona waktu (WIB/WITA/WIT, beda 1-2 jam), jadi kalo ngandelin new Date() polos
-// (yang notoin timezone si DEVICE), AM/Master yang buka app dari WITA/WIT bisa dapet "hari ini"
-// yang beda sama pg_cron di database (yang eksplisit WIB) -- bisa ketuker expire PR-nya beda 1-2
-// jam tergantung siapa yang duluan ngecek. Dipakein sebagai "jam acuan perusahaan" yang sama biar
-// konsisten, gak peduli device-nya lagi di zona jam mana. Trik-nya: Date.now() itu UTC epoch (gak
-// kepengaruh timezone device), tinggal digeser +7 jam terus dibaca komponen UTC-nya balik.
 function todayWIB() {
     const wib = new Date(Date.now() + 7 * 60 * 60 * 1000);
     const yyyy = wib.getUTCFullYear();
@@ -323,10 +248,6 @@ function todayWIB() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
-// "Besok" versi WIB -- dipake buat notifikasi "PR hampir Expired" di Dashboard: PR yang Required
-// Date-nya JATUH BESOK berarti HARI INI adalah H-1 (batas terakhir take action), soalnya PR baru
-// beneran ke-expire begitu tanggal HARI INI udah nyampe/lewat Required Date-nya (liat
-// expireOverduePRs()). Jadi "besok" di sini persis nunjukin PR yang paling mendesak.
 function tomorrowWIB() {
     const wib = new Date(Date.now() + 7 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000);
     const yyyy = wib.getUTCFullYear();
@@ -335,10 +256,6 @@ function tomorrowWIB() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
-// Paksa lebar kalender flatpickr SAMA PERSIS kayak lebar box pemicunya (boxEl),
-// biar gak ada kalender yang lebih lebar/sempit dari box-nya kayak yang dikeluhin.
-// flatpickr nge-set lebar beberapa elemen internalnya sendiri (inline style), jadi
-// kita timpa manual abis instance-nya kebentuk/dibuka.
 function syncFlatpickrWidth(instance, boxEl) {
     if (!instance || !boxEl) return;
     const w = boxEl.offsetWidth;
@@ -350,29 +267,18 @@ function syncFlatpickrWidth(instance, boxEl) {
             const el = instance.calendarContainer.querySelector(sel);
             if (el) { el.style.width = px; el.style.minWidth = px; el.style.maxWidth = px; }
         });
-    // flatpickr udah nentuin posisi kalender SEBELUM kita timpa lebarnya di atas -- jadi kalo
-    // lebar box beda dari lebar default kalender, posisi awal (pas pertama kali buka) keitung
-    // pake lebar LAMA dan kalender keliatan geser dikit ke kiri. Setelah lebar ditimpa, suruh
-    // flatpickr itung ulang posisinya pake lebar yang udah bener -- ini yang bikin klik pertama
-    // sekarang langsung bener (sebelumnya baru bener pas klik kedua, soalnya browser "kebetulan"
-    // udah inget lebar barunya dari kalkulasi klik pertama).
+
     if (typeof instance._positionCalendar === 'function') {
         instance._positionCalendar();
     }
 }
 
-// Kalender flatpickr defaultnya selalu nampilin 6 baris (42 sel) biar tingginya konsisten tiap
-// bulan -- kadang baris TERAKHIR isinya full tanggal bulan BERIKUTNYA doang (padding doang, gak
-// ada gunanya) yang bikin kalender keliatan kepanjangan ke bawah. Baris itu kita sembunyiin, TAPI
-// cuma kalo semua 7 sel di baris itu emang punya class nextMonthDay -- kalo ada satu aja tanggal
-// bulan berjalan yang nyempil di baris ke-6 itu (bulan yang tanggal terakhirnya jatuh di baris
-// itu), baris itu TETEP ditampilin biar tanggalnya gak ilang.
 function trimTrailingWeek(instance) {
     if (!instance || !instance.calendarContainer) return;
     const dayContainer = instance.calendarContainer.querySelector('.dayContainer');
     if (!dayContainer) return;
     const days = dayContainer.querySelectorAll('.flatpickr-day');
-    if (days.length < 42) return; // gak sampe 6 baris, gak ada yang perlu disembunyiin
+    if (days.length < 42) return;
     const lastRow = Array.from(days).slice(35, 42);
     const allNextMonth = lastRow.length === 7 && lastRow.every(d => d.classList.contains('nextMonthDay'));
     lastRow.forEach(d => { d.style.display = allNextMonth ? 'none' : ''; });
@@ -382,7 +288,7 @@ function trimTrailingWeek(instance) {
 // KOMPONEN DATE RANGE PICKER -- kalender beneran (dari-sampe) pake library
 // flatpickr (di-load di index.html). Ganti 2 kotak <input type=date> yang lama.
 // v-model isinya object { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } (kosong kalo belum dipilih).
-// ============================================================
+
 const DateRangeFilter = {
     props: {
         modelValue: { type: Object, default: () => ({ from: '', to: '' }) },
@@ -407,8 +313,8 @@ const DateRangeFilter = {
             fp = flatpickr(inputEl.value, {
                 mode: 'range',
                 dateFormat: 'd-m-Y',
-                showMonths: 1, // 1 bulan aja -- 2 bulan kegedean di layar kecil
-                positionElement: wrapEl.value, // posisi kalender ngikutin box bungkusnya (bukan cuma <input>-nya), biar nempel pas di bawah box & rata kiri-kanan
+                showMonths: 1,
+                positionElement: wrapEl.value,
                 onReady: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onOpen: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onMonthChange: (sd, ds, instance) => trimTrailingWeek(instance),
@@ -438,7 +344,7 @@ const DateRangeFilter = {
 // Daftar PR (ikon kalender + kalender flatpickr pas diklik), tapi cuma milih
 // 1 tanggal (bukan range). Dipake di field "Required Date" pas Buat PR.
 // v-model isinya string 'YYYY-MM-DD' (kosong kalo belum dipilih).
-// ============================================================
+
 const DatePickerField = {
     props: {
         modelValue: { type: String, default: '' },
@@ -486,11 +392,6 @@ const STATUS_OPTIONS = [
     { value: 'Expired', label: 'Expired' }
 ];
 
-// Urutan & warna segmen donut chart status PR di Dashboard -- warnanya SAMA persis kayak
-// .status-badge di style.css biar konsisten sama badge yang keliatan di tabel Daftar PR.
-// color = vivid, dipake buat cincin donut & label persentase.
-// soft  = versi lembut dari color yang sama, dipake buat titik/dot di kotak status.
-// bg    = background kotak status, warna soft yang senada sama status-nya.
 const DASHBOARD_STATUS_CONFIG = [
     { key: 'Pending', label: 'Pending', color: '#bd7410', soft: '#dc9a3f', bg: '#fff6e7' },
     { key: 'Approved', label: 'Approved', color: '#117b58', soft: '#3fa889', bg: '#e9f8f2' },
@@ -498,26 +399,21 @@ const DASHBOARD_STATUS_CONFIG = [
     { key: 'Expired', label: 'Expired', color: '#71809a', soft: '#98a4bb', bg: '#eef1f5' }
 ];
 
-// Opsi buat dropdown Kategori Pengiriman di form PR. Ini daftar LENGKAPnya (Almaz Fried
-// Chicken pake ini apa adanya) -- Kebuli Abuya di-filter lewat computed shippingCategoryOptions
-// di setup() (cuma nyisain "Direct" doang, soalnya Kebuli Abuya gak pake skema Indirect/PIC).
 const SHIPPING_CATEGORY_OPTIONS = [
     { value: 'Direct', label: 'Direct (Distribution Center)' },
     { value: 'Indirect', label: 'Indirect (Vendor)' }
 ];
 
-// Opsi dropdown PIC -- CUMA muncul kalo Kategori Pengiriman = Indirect (khusus Almaz Fried
-// Chicken, soalnya Kebuli Abuya gak punya opsi Indirect sama sekali).
-const PIC_OPTIONS = [
-    { value: 'Iis', label: 'Iis' },
-    { value: 'Dinda', label: 'Dinda' },
-    { value: 'Caca', label: 'Caca' }
+const PIC_SHIPPING_SELECT_OPTIONS = [
+    { value: 'Direct', label: 'Direct' },
+    { value: 'Indirect', label: 'Indirect' }
 ];
 
-// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR. Kalo yang
-// dipilih "Branch", search box di sampingnya DIGANTI jadi multi-select Branch (bukan text box
-// biasa) -- field lain (Request Number/PIC/Notes) tetep text box biasa & diketik manual (PIC bisa
-// macem-macem/nambah kapan aja jadi lebih fleksibel diketik daripada dropdown fixed).
+const BRAND_SELECT_OPTIONS = [
+    { value: 'Kebuli Abuya', label: 'Kebuli Abuya' },
+    { value: 'Almaz Fried Chicken', label: 'Almaz Fried Chicken' }
+];
+
 const PR_SEARCH_FIELDS = [
     { value: 'pr_number', label: 'Request Number' },
     { value: 'branch_name', label: 'Branch' },
@@ -525,7 +421,6 @@ const PR_SEARCH_FIELDS = [
     { value: 'notes', label: 'Notes' }
 ];
 
-// Sama, tapi buat Daftar PO
 const PO_SEARCH_FIELDS = [
     { value: 'po_number', label: 'PO Number' },
     { value: 'pr_number', label: 'PR Reference' },
@@ -533,35 +428,14 @@ const PO_SEARCH_FIELDS = [
     { value: 'pic', label: 'PIC' }
 ];
 
-// Dropdown FILTER Kategori Pengiriman (Daftar PR & Daftar PO) -- fixed 2 opsi + "All Shipping"
-// biar bisa direset ke gak difilter sama sekali. Beda sama SHIPPING_CATEGORY_OPTIONS yang label-nya
-// lebih panjang (dipake di form Buat PR) -- di sini sengaja label-nya diringkes.
 const SHIPPING_FILTER_OPTIONS = [
     { value: '', label: 'All Shipping' },
     { value: 'Direct', label: 'Direct' },
     { value: 'Indirect', label: 'Indirect' }
 ];
 
-// ============================================================
-// DIREKTIF v-stickyroll -- "stickyroll biasa" buat list dashboard yang bisa kepanjangan
-// (Notifikasi PR Hampir Expired, Top Item by PO, Top Item by Qty).
-// v-stickyroll="true" (item > 5) HANYA mepasin tinggi container biar pas nampung persis 5
-// baris pertama -- TIDAK ADA auto-scroll/animasi apapun (Yoyo/Ping-Pong sudah di-disable).
-// Kalo item-nya lebih dari 5, baris ke-6 dst otomatis ke-luar area & butuh di-scroll MANUAL
-// (mouse wheel/trackpad/scrollbar/swipe touch native) buat keliatan -- murni native scroll
-// bawaan browser, gerakannya 100% dikontrol user, gak ada gerakan otomatis sama sekali.
-// ============================================================
-const STICKYROLL_ROWS = 5;   // tinggi container dipas-in buat nampung persis segini baris
+const STICKYROLL_ROWS = 5;
 
-// Ngukur tinggi beneran dari N baris pertama LANGSUNG dari DOM (bukan nebak angka px tetap
-// kayak sebelumnya) -- soalnya tinggi 1 baris beda-beda tiap list (Notifikasi vs Top Item),
-// beda font/zoom browser, dsb. Kemarin dipatok "max-height:280px" doang, dan itu KEBETULAN
-// pas banget sama tinggi 6 baris pendek (1 baris teks) di beberapa kondisi -- jadi kelihatannya
-// "gak overflow apa-apa, makanya gak ada yang di-scroll" (bukan animasinya yang rusak, konten-
-// nya emang kebetulan udah muat semua). Diukur dari DOM langsung biar SELALU presisi: berapapun
-// tinggi baris sebenernya (misalnya teksnya wrap ke 2 baris, atau beda ukuran font), container-
-// nya selalu dipas-in nampung PERSIS 5 baris pertama -- baris ke-6 dst PASTI ke-luar area & PASTI
-// kebutuhan di-scroll buat keliatan, gak pernah "kebetulan muat semua" lagi.
 function measureStickyrollMaxHeight(el) {
     const track = el.querySelector('.stickyroll-track');
     if (!track || track.children.length === 0) return null;
@@ -570,11 +444,6 @@ function measureStickyrollMaxHeight(el) {
     return lastRow.offsetTop + lastRow.offsetHeight;
 }
 
-// Fade atas/bawah yang dulu ngikutin posisi scroll (toggle class at-top/at-bottom) UDAH DIHAPUS
-// -- row list-nya pendek, jadi fade-nya (gimanapun udah dikecilin/ditipisin) tetep bikin baris
-// paling atas/bawah keliatan beda/pudar dibanding baris lain begitu discroll. Penanda "masih ada
-// konten di atas/bawah" sekarang cuma scrollbar tipis bawaan (lihat .stickyroll-wrap.stickyroll-active
-// ::-webkit-scrollbar-thumb di style.css) -- gak perlu listener scroll/toggle class apa-apa lagi.
 const stickyrollDirective = {
     mounted(el, binding) {
         el._srActive = !!binding.value;
@@ -585,8 +454,6 @@ const stickyrollDirective = {
             if (h) el.style.maxHeight = h + 'px';
         };
 
-        // ResizeObserver -- kalo lebar kolom berubah (resize window/zoom browser) yang bikin
-        // teks item ikut wrap beda jumlah baris, tinggi 5-baris-pertama ke-ukur ulang otomatis.
         const track = el.querySelector('.stickyroll-track');
         el._srRO = new ResizeObserver(() => syncMaxHeight());
         if (track) el._srRO.observe(track);
@@ -608,7 +475,7 @@ const stickyrollDirective = {
 
 const app = createApp({
     setup() {
-        // STATE AUTENTIKASI
+
         const isLoggedIn = ref(false);
         const userEmail = ref('');
         const userRole = ref('');
@@ -632,7 +499,7 @@ const app = createApp({
             idleTimer = setInterval(() => {
                 const idleMinutes = (Date.now() - lastActivityAt) / 60000;
                 if (idleMinutes >= SESSION_TIMEOUT_MINUTES) expireSessionDueToIdle();
-            }, 30000); // cek tiap 30 detik
+            }, 30000);
         };
 
         const stopIdleWatcher = () => {
@@ -641,25 +508,9 @@ const app = createApp({
             idleTimer = null;
         };
 
-        // ============================================================
-        // SINKRON SESI ANTAR TAB -- sesi Supabase sengaja disimpen di sessionStorage (liat komentar
-        // di atas SUPABASE_URL), biar begitu SEMUA tab ditutup, otomatis ke-anggep logout. Tapi
-        // sessionStorage itu per-tab, jadi tab BARU (misal dibuka lewat klik-kanan "Buka di tab
-        // baru" di menu sidebar / tombol Edit PR) gak kebagian sesi yang sama & kepaksa diminta
-        // login lagi, padahal user aslinya masih login di tab lain.
-        //
-        // Fix-nya: pas tab baru kebuka & belom ada sesi sendiri, dia "nanya" ke tab lain lewat
-        // localStorage -- dipake CUMA sebagai jalur pesan sesaat antar tab (browser "storage" event
-        // cuma nyala di tab LAIN, gak di tab yang nulis), bukan buat nyimpen sesi beneran, makanya
-        // langsung dihapus lagi abis dipake. Kalo ada tab lain yang masih login, dia "jawab" ngasih
-        // access/refresh token-nya, terus dipasang ke client Supabase tab ini lewat setSession() --
-        // gak perlu login ulang. Kalo GAK ADA tab lain yang lagi login (misal semua tab browser abis
-        // ditutup terus buka baru), gak ada yang jawab dalam 500ms -> tetep diminta login kayak
-        // biasa, jadi auto-logout pas semua tab ditutup TETAP jalan sesuai niat awal.
         const SESSION_SYNC_REQUEST_KEY = 'apv_session_sync_request';
         const SESSION_SYNC_RESPONSE_PREFIX = 'apv_session_sync_response_';
 
-        // Tab ini "jawab" kalo ada tab LAIN yang nanya (minta sesi) & tab ini emang lagi login.
         window.addEventListener('storage', async (ev) => {
             if (ev.key !== SESSION_SYNC_REQUEST_KEY || !ev.newValue || !isLoggedIn.value) return;
             try {
@@ -670,13 +521,11 @@ const app = createApp({
                     access_token: session.access_token,
                     refresh_token: session.refresh_token
                 }));
-                // Numpang lewat doang -- bukan tempat nyimpen sesi, jadi dibersihin lagi sesaat abis itu.
+
                 setTimeout(() => { try { localStorage.removeItem(responseKey); } catch (e) {} }, 2000);
             } catch (e) {}
         });
 
-        // Minta sesi ke tab lain (dipanggil pas tab ini kebuka & sessionStorage-nya sendiri kosong).
-        // Nunggu maksimal 500ms buat jawaban; kalo gak ada yang jawab, resolve null.
         const requestSessionFromOtherTabs = () => {
             return new Promise((resolve) => {
                 const token = Date.now() + '_' + Math.random().toString(36).slice(2);
@@ -704,7 +553,6 @@ const app = createApp({
             });
         };
 
-        // Bersihin semua state login (dipake bareng sama expiry maupun logout manual)
         const clearSessionState = () => {
             isLoggedIn.value = false;
             userEmail.value = '';
@@ -722,21 +570,17 @@ const app = createApp({
             await supabaseClient.auth.signOut();
             manualSignOut = false;
             clearSessionState();
-            sessionExpiredMessage.value = `Sesi lo abis karena kelamaan gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
+            sessionExpiredMessage.value = `Ups! Antum ke-logout karena gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
         };
 
-        // Jaring pengaman: kalo Supabase sendiri yang ngeluarin sesi (token expired/invalid,
-        // atau logout dari tab/perangkat lain) di luar signOut() yang kita panggil sendiri
         supabaseClient.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT' && !manualSignOut && isLoggedIn.value) {
                 stopIdleWatcher();
                 clearSessionState();
-                sessionExpiredMessage.value = 'Sesi login lo udah gak valid lagi. Login lagi ya.';
+                sessionExpiredMessage.value = 'Sesi login Antum udah gak valid lagi. Login lagi ya.';
             }
         });
 
-        // STATE BRAND -- selectedBrand = brand yang dipilih di layar sebelum login
-        // userBrand = brand ASLI yang nempel di akun (dari user_roles), null = Master (bebas semua brand)
         const selectedBrand = ref('');
         const userBrand = ref(null);
         const backToBrandPicker = () => {
@@ -747,12 +591,9 @@ const app = createApp({
         };
 
         const currentTab = ref('dashboard');
-        // 4 menu utama di sidebar -- ini doang yang punya URL (#hash) sendiri. Tab lain
-        // (buat-pr/edit-pr/master-branch/master-product/view-po) butuh data spesifik (PR/PO/produk
-        // yang lagi dibuka) yang cuma ada di memori browser, jadi gak bisa "dibuka lewat link".
+
         const SIDEBAR_TABS = ['dashboard', 'daftar-pr', 'daftar-po', 'master-hub'];
-        // Baca tab dari #hash di URL (misal dibuka dari link "Open in new tab") -- null kalo
-        // gak ada / gak valid, biar fallback normal (localStorage / default dashboard) yang jalan.
+
         const tabFromHash = () => {
             const h = (window.location.hash || '').replace('#', '');
             return SIDEBAR_TABS.includes(h) ? h : null;
@@ -780,19 +621,13 @@ const app = createApp({
                     return;
                 }
                 const saved = localStorage.getItem('lastActiveTab');
-                // 'edit-pr'/'view-po' gak di-restore -- editingPR/viewingPO cuma ada di memori
-                // browser, ilang pas refresh, jadi kalo dipaksa balik ke tab ini layarnya bakal kosong
+
                 if (saved && saved !== 'edit-pr' && saved !== 'view-po' && (!saved.startsWith('master') || role === 'Master')) {
                     currentTab.value = saved;
                 }
             } catch (e) {}
         };
-        // Dipake di @click link sidebar -- link-nya sekarang punya href="#tab" beneran (bukan
-        // cuma div/@click doang) biar browser ngeh ada "alamat" tujuannya, jadi klik-kanan-nya
-        // otomatis punya pilihan "Buka link di tab baru" / "Salin alamat link" kayak link biasa.
-        // Klik kiri polos -> tetep pindah tab di HALAMAN YANG SAMA (SPA, gak reload) makanya
-        // di-preventDefault. Tapi Ctrl/Cmd/Shift+klik atau klik tengah/kanan (buat buka tab baru /
-        // window baru / lewat menu klik-kanan) SENGAJA DIBIARIN jalan normal ke href-nya.
+
         const goToTab = (e, tab) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
@@ -800,12 +635,11 @@ const app = createApp({
         };
         const prs = ref([]);
         const pos = ref([]);
-        const prItems = ref([]); // isi purchase_request_items -- item-item di tiap PR (1 PR bisa banyak item sekarang)
+        const prItems = ref([]);
         const masterBranches = ref([]);
         const masterProducts = ref([]);
+        const masterPics = ref([]);
 
-        // form Buat PR -- gak ada harga/total lagi, item-nya dikumpulin dulu di form.items
-        // sebelum di-submit bareng-bareng (baru masuk DB pas tombol Submit diklik)
         const form = ref({ branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] });
         // PIC cuma relevan kalo Kategori Pengiriman = Indirect -- kalo user ganti balik ke
         // Direct (atau kategori lain), kosongin lagi PIC-nya biar gak ke-submit nyangkut/stale.
@@ -853,6 +687,7 @@ const app = createApp({
         const poFilterShipping = ref(''); // filter dropdown Shipping di Daftar PO ('' = semua)
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
+        const picSearchQuery = ref('');
 
         // ============================================================
         // FILTER "Select Target Column" + search box di Daftar PR/PO -- pilih dulu kolom yang mau
@@ -929,14 +764,8 @@ const app = createApp({
             editingFormItemIdx.value = null;
         };
 
-        // ============================================================
-        // AM/MASTER REVIEW PR -- edit item (tambah/hapus/ubah qty) + approve/reject.
-        // Beda sama form.items di atas: di sini tiap aksi LANGSUNG nyimpen ke DB
-        // (bukan draft lokal dulu), soalnya PR-nya emang udah ada/tersimpan.
-        // ============================================================
-        const editingPRId = ref(null); // ID PR yang lagi dibuka di layar Detail/Edit
-        // Ambil objek PR-nya langsung dari prs (bukan disimpen sebagai objek statis) biar
-        // begitu fetchData() jalan lagi (misal abis approve/tambah item), datanya ikut ke-update
+        const editingPRId = ref(null);
+
         const editingPR = computed(() => editingPRId.value ? (prs.value.find(pr => pr.id === editingPRId.value) || null) : null);
         const editPRNewItemProductId = ref('');
         const editPRNewItemQty = ref(null); // null biar field kosong (placeholder "Jumlah" keliatan), bukan nampilin "0"
@@ -947,17 +776,87 @@ const app = createApp({
             !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'Master')
         );
 
-        // ============================================================
-        // VIEW DETAIL PO -- read-only, dibuka dari tombol "View" di Daftar PO
-        // (item PO gak lagi di-show langsung di tabel list, biar tabelnya gak sesak)
-        // ============================================================
         const viewingPOId = ref(null);
         const viewingPO = computed(() => viewingPOId.value ? (pos.value.find(po => po.id === viewingPOId.value) || null) : null);
         const viewingPOItems = computed(() => viewingPO.value ? (itemsByPrId.value[viewingPO.value.pr_id] || []) : []);
         const openViewPO = (po) => { viewingPOId.value = po.id; currentTab.value = 'view-po'; };
         const backFromViewPO = () => { viewingPOId.value = null; currentTab.value = 'daftar-po'; };
 
-        // STATE EDIT & BULK SELECT -- Master Branch
+        const PO_EXPORT_HEADERS = ['Purchase Date', 'Required Date', 'PO Number', 'PR Number', 'Branch', 'Product Name', 'Unit', 'Purchase Qty', 'PIC', 'Notes', 'PO Created By'];
+        const PO_EXPORT_COLS = [
+            { wch: 13.89 }, { wch: 13.55 }, { wch: 16.78 }, { wch: 11 }, { wch: 7.33 },
+            { wch: 13.55 }, { wch: 4.55 }, { wch: 12.89 }, { wch: 10 }, { wch: 6.11 }, { wch: 14.11 }
+        ];
+
+        const productNameUnitFor = (it) => {
+            const product = masterProducts.value.find(p => p.id === it.product_id);
+            if (product) return { name: product.name, unit: product.unit || '' };
+            const m = String(it.item_name || '').match(/^(.*)\s\(([^()]+)\)$/);
+            if (m) return { name: m[1], unit: m[2] };
+            return { name: it.item_name || '', unit: '' };
+        };
+
+        const poExportRows = (po) => {
+            const pr = po.purchase_requests || {};
+            const items = itemsByPrId.value[po.pr_id] || [];
+            const base = [formatDate(po.created_at), formatDate(pr.required_date), po.po_number, pr.pr_number || '-', pr.branch_name || '-'];
+            if (items.length === 0) return [[...base, '-', '', '', pr.pic || '-', pr.notes || '', po.created_by || '-']];
+            return items.map(it => {
+                const { name, unit } = productNameUnitFor(it);
+                return [...base, name, unit, it.qty, pr.pic || '-', pr.notes || '', po.created_by || '-'];
+            });
+        };
+
+        const PO_EXPORT_HEADER_STYLE = {
+            font: { name: 'Arial', size: 10, italic: true, color: { argb: 'FFFFFFFF' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF163E64' } },
+            alignment: { horizontal: 'center', vertical: 'middle' },
+            border: {
+                top: { style: 'dashed' },
+                bottom: { style: 'dashed' },
+                left: { style: 'dashed' },
+                right: { style: 'dashed' }
+            }
+        };
+
+        const downloadWorkbookBuffer = async (workbook, filename) => {
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
+        const buildPOFlatSheet = (workbook, poList) => {
+            const ws = workbook.addWorksheet('Purchase Order');
+            ws.columns = PO_EXPORT_HEADERS.map((header, i) => ({ header, width: PO_EXPORT_COLS[i].wch }));
+            ws.getRow(1).eachCell((cell) => {
+                cell.font = PO_EXPORT_HEADER_STYLE.font;
+                cell.fill = PO_EXPORT_HEADER_STYLE.fill;
+                cell.alignment = PO_EXPORT_HEADER_STYLE.alignment;
+                cell.border = PO_EXPORT_HEADER_STYLE.border;
+            });
+            poList.forEach(po => poExportRows(po).forEach(row => ws.addRow(row)));
+            return ws;
+        };
+
+        const exportPOExcel = async (po) => {
+            const workbook = new ExcelJS.Workbook();
+            buildPOFlatSheet(workbook, [po]);
+            await downloadWorkbookBuffer(workbook, (po.po_number || 'PO') + '.xlsx');
+        };
+
+        const exportAllPOExcel = async () => {
+            const workbook = new ExcelJS.Workbook();
+            buildPOFlatSheet(workbook, filteredPOs.value);
+            await downloadWorkbookBuffer(workbook, 'Purchase_Order_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        };
+
         const editingBranchId = ref(null);
         const editBranchForm = ref({ branch_name: '', branch_code: '', brand: '' });
         const selectedBranchIds = ref([]);
@@ -966,6 +865,12 @@ const app = createApp({
         const editingProductId = ref(null);
         const editProductForm = ref({ name: '', unit: '', brand: '' });
         const selectedProductIds = ref([]);
+
+        // STATE EDIT & BULK SELECT -- Master PIC
+        const editingPicId = ref(null);
+        const editPicForm = ref({ pic_name: '', shipping: '', brand: '' });
+        const selectedPicIds = ref([]);
+        const addPicForm = ref({ pic_name: '', shipping: '', brand: '' });
 
         // Brand yang lagi "aktif" di workspace ini: AM selalu kekunci ke brand-nya sendiri,
         // Master ngikut brand yang dia pilih di layar login (biar pas masuk salah satu "kamar"
@@ -982,7 +887,6 @@ const app = createApp({
             return SHIPPING_CATEGORY_OPTIONS;
         });
 
-        // Semua PR/PO di-scope ke activeBrand dulu -- ini yang bikin isi brand lain gak ikut nongol
         const brandPRs = computed(() => {
             if (!activeBrand.value) return prs.value;
             return prs.value.filter(pr => pr.brand === activeBrand.value);
@@ -994,12 +898,6 @@ const app = createApp({
 
         const pendingPRs = computed(() => brandPRs.value.filter(pr => pr.status === 'Pending'));
 
-        // ============================================================
-        // DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
-        // ============================================================
-        // brandPRs/brandPOs abis di-filter lagi pake filter Branch + range tanggal Dashboard
-        // (dashBranchFilter/dashDateRange) -- CUMA dipake sama donut chart & 2 list Top Items,
-        // notifikasi (expiringSoonPRs di bawah) sengaja TETEP pake brandPRs mentah (gak kefilter).
         const dashFilteredPRs = computed(() => {
             let result = brandPRs.value;
             if (dashBranchFilter.value.length) result = result.filter(pr => dashBranchFilter.value.includes(pr.branch_name));
@@ -1015,7 +913,6 @@ const app = createApp({
             return result;
         });
 
-        // Jumlah PR per status (buat donut chart & 4 kotak angka di sampingnya)
         const prStatusCounts = computed(() => {
             const counts = { Pending: 0, Approved: 0, Rejected: 0, Expired: 0 };
             dashFilteredPRs.value.forEach(pr => {
@@ -1025,22 +922,11 @@ const app = createApp({
         });
         const donutTotal = computed(() => dashFilteredPRs.value.length);
 
-        // Hitung tiap segmen donut: dash-array/offset buat gambar busur SVG-nya, plus posisi
-        // (x,y) buat naro label persentase PAS DI PINGGIR donat-nya (bukan di tengah/di dalem).
         const donutSegments = computed(() => {
             const total = donutTotal.value;
             const R = 70, CX = 100, CY = 100;
             const circumference = 2 * Math.PI * R;
-            // Donat ini digambar dari BEBERAPA <circle> yang ditumpuk (satu circle per segmen,
-            // lewat stroke-dasharray/offset) -- BUKAN 1 path nyambung. Kalo segmen-segmennya
-            // nempel PAS di ujung tanpa celah, anti-aliasing browser di titik pertemuan 2 segmen
-            // bisa nge-blend/"bocor" dikit ke warna sebelahnya. Paling keliatan di sambungan
-            // segmen TERAKHIR (Expired, abu-abu) balik nyambung ke segmen PERTAMA (Pending,
-            // oranye) -- soalnya Expired digambar paling belakangan/paling atas tumpukannya,
-            // jadi abu-abunya yang nge-bleed nutupin dikit ujung oranye-nya. Fix-nya: kasih
-            // celah kecil (2 satuan keliling) di tiap pertemuan antar segmen, cuma diaktifin
-            // kalo emang ada lebih dari 1 status yang punya PR (kalo cuma 1 status doang yang
-            // ada isinya, gak perlu celah -- ring-nya emang cuma 1 warna penuh).
+
             const visibleCount = DASHBOARD_STATUS_CONFIG.filter(cfg => (prStatusCounts.value[cfg.key] || 0) > 0).length;
             const GAP = visibleCount > 1 ? 2 : 0;
             let cumulative = 0;
@@ -1050,19 +936,13 @@ const app = createApp({
                 const dash = total > 0 ? (count / total) * circumference : 0;
                 const offset = cumulative;
                 cumulative += dash;
-                // -Math.PI/2 biar segmen pertama mulai dari jam 12 (bukan jam 3, default SVG).
-                // Posisi label & garis penghubung tetep ngikutin titik tengah segmen ASLINYA
-                // (dash penuh, sebelum dipotong buat celah) biar gak ikut geser gara-gara celah.
+
                 const midAngle = total > 0 ? ((offset + dash / 2) / circumference) * 2 * Math.PI - Math.PI / 2 : 0;
-                // Label persentase digeser lebih jauh dari cincin donut (labelR), dan dikasih
-                // garis penghubung ("benang") dari pinggir cincin (lineR1) ke deket label-nya
-                // (lineR2) biar jelas persentase itu punya segmen yang mana + gak mepet ke donat.
+
                 const labelR = R + 40;
                 const lineR1 = R + 15;
                 const lineR2 = labelR - 12;
-                // Busur yang BENERAN digambar sedikit lebih pendek dari dash aslinya (disisain
-                // celah GAP simetris di kedua ujungnya) & titik mulainya digeser maju setengah
-                // celah, biar posisi & lebar "slot" sudutnya tetep sama kayak sebelumnya.
+
                 const renderDash = Math.max(dash - GAP, 0);
                 const renderOffset = offset + (dash - renderDash) / 2;
                 return {
@@ -1084,20 +964,14 @@ const app = createApp({
                 };
             });
         });
-        // Cuma segmen yang count-nya > 0 -- dipisah dari donutSegments biar template svg-nya
-        // gak perlu v-for+v-if bareng di satu <text> (rawan bug percampuran scope di Vue 3).
+
         const donutLabelSegments = computed(() => donutSegments.value.filter(s => s.count > 0));
 
-        // Notifikasi "PR Hampir Expired" -- PR Pending yang Required Date-nya jatuh BESOK (artinya
-        // HARI INI udah H-1, batas terakhir buat di-take action sebelum otomatis ke-expire).
         const expiringSoonPRs = computed(() => {
             const limit = tomorrowWIB();
             return brandPRs.value.filter(pr => pr.status === 'Pending' && pr.required_date === limit);
         });
 
-        // Top item paling sering dipesan diliat dari BERAPA KALI item itu nongol di PO yang beda
-        // (count of PO), BUKAN dari total qty-nya -- jadi item yang muncul di 5 PO beda (qty 1
-        // masing-masing) tetep menang dibanding item yang cuma muncul di 1 PO tapi qty-nya 100.
         const topItemsByPOCount = computed(() => {
             const counts = {};
             dashFilteredPOs.value.forEach(po => {
@@ -1113,9 +987,6 @@ const app = createApp({
                 .slice(0, 10);
         });
 
-        // Top item paling sering dipesan diliat dari TOTAL QTY-nya (jumlah semua qty item itu
-        // digabung dari semua PO) -- beda sama topItemsByPOCount yang ngitung frekuensi PO, ini
-        // ngitung total banyaknya barang yang dipesan.
         const topItemsByQtyCount = computed(() => {
             const totals = {};
             dashFilteredPOs.value.forEach(po => {
@@ -1130,8 +1001,6 @@ const app = createApp({
                 .slice(0, 10);
         });
 
-        // Sort state buat tabel Daftar PR & Daftar PO. Klik header sekali = urut naik (asc),
-        // klik lagi di kolom yang sama = kebalik (desc), klik kolom lain = pindah ke kolom itu (asc).
         const prSortField = ref('created_at');
         const prSortDir = ref('desc');
         const poSortField = ref('created_at');
@@ -1152,8 +1021,7 @@ const app = createApp({
                 poSortDir.value = 'asc';
             }
         };
-        // Comparator generik: string di-lowercase biar A-Z gak beda sama a-z, angka/tanggal
-        // (string ISO) langsung bisa dibandingin langsung.
+
         const compareSortVal = (a, b) => {
             if (a === null || a === undefined || a === '') a = '';
             if (b === null || b === undefined || b === '') b = '';
@@ -1170,8 +1038,7 @@ const app = createApp({
             if (prFilterShipping.value) result = result.filter(pr => pr.shipping_category === prFilterShipping.value);
             if (prDateRange.value.from) result = result.filter(pr => pr.required_date && pr.required_date >= prDateRange.value.from);
             if (prDateRange.value.to) result = result.filter(pr => pr.required_date && pr.required_date <= prDateRange.value.to);
-            // Kolom "Branch" kepilih -> filter pake multi-select (prBranchFilter), kolom lain
-            // (Request Number/PIC/Notes) -> filter pake search box teks biasa (searchQuery).
+
             if (prSearchField.value === 'branch_name') {
                 if (prBranchFilter.value.length) result = result.filter(pr => prBranchFilter.value.includes(pr.branch_name));
             } else if (searchQuery.value) {
@@ -1184,8 +1051,6 @@ const app = createApp({
             return result;
         });
 
-        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Branch/PIC-nya ngikut PR induk
-        // (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
         const getPOSortVal = (po, field) => {
             if (field === 'po_number' || field === 'created_at') return po[field];
             return po.purchase_requests?.[field];
@@ -1210,9 +1075,6 @@ const app = createApp({
             return result;
         });
 
-        // Master Branch/Product SEKARANG ikut ke-scope brand yang lagi aktif juga.
-        // Cabang/produk yang brand-nya belum ketandain (NULL) tetep keliatan di semua brand,
-        // biar data lama yang belum sempet ditag gak ujug-ujug ilang.
         const brandManagedBranches = computed(() => {
             if (!activeBrand.value) return masterBranches.value;
             return masterBranches.value.filter(b => !b.brand || b.brand === activeBrand.value);
@@ -1220,6 +1082,10 @@ const app = createApp({
         const brandManagedProducts = computed(() => {
             if (!activeBrand.value) return masterProducts.value;
             return masterProducts.value.filter(p => !p.brand || p.brand === activeBrand.value);
+        });
+        const brandManagedPics = computed(() => {
+            if (!activeBrand.value) return masterPics.value;
+            return masterPics.value.filter(p => !p.brand || p.brand === activeBrand.value);
         });
 
         const filteredBranches = computed(() => {
@@ -1234,6 +1100,12 @@ const app = createApp({
             return brandManagedProducts.value.filter(p => (p.name || '').toLowerCase().includes(query));
         });
 
+        const filteredPics = computed(() => {
+            if (!picSearchQuery.value) return brandManagedPics.value;
+            const query = picSearchQuery.value.toLowerCase();
+            return brandManagedPics.value.filter(p => (p.pic_name || '').toLowerCase().includes(query));
+        });
+
         // "Select all" nyala kalo semua baris yang lagi keliatan (hasil search) udah dipilih
         const allBranchesSelected = computed(() =>
             filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
@@ -1241,6 +1113,15 @@ const app = createApp({
         const allProductsSelected = computed(() =>
             filteredProducts.value.length > 0 && selectedProductIds.value.length === filteredProducts.value.length
         );
+        const allPicsSelected = computed(() =>
+            filteredPics.value.length > 0 && selectedPicIds.value.length === filteredPics.value.length
+        );
+
+        const picOptions = computed(() => {
+            let list = brandManagedPics.value;
+            if (form.value.shipping_category) list = list.filter(p => !p.shipping || p.shipping === form.value.shipping_category);
+            return list.map(p => ({ value: p.pic_name, label: p.pic_name }));
+        });
 
         // Dropdown cabang & item pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
         // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
@@ -1260,8 +1141,6 @@ const app = createApp({
             return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         };
 
-        // Sama kayak formatDate, tapi ikut nampilin jam:menit -- dipake di box "Information"
-        // (kapan PR/PO dibuat & diedit).
         const formatDateTime = (dateStr) => {
             if (!dateStr) return '-';
             const d = new Date(dateStr);
@@ -1270,7 +1149,6 @@ const app = createApp({
             return `${datePart}, ${timePart}`;
         };
 
-        // Ambil role + brand user dari tabel user_roles (RLS cuma ngebolehin liat row diri sendiri)
         const fetchRoleAndBrand = async (email) => {
             const { data, error } = await supabaseClient
                 .from('user_roles')
@@ -1337,21 +1215,6 @@ const app = createApp({
             try { localStorage.removeItem('lastActiveTab'); } catch (e) {}
         };
 
-        // PR yang statusnya masih Pending tapi udah lewat batas waktu take action otomatis
-        // di-expire jadi status "Expired". Batasnya: AM/Master masih bisa Approve/Reject sampe
-        // H-1 dari Required Date (misal Required Date tanggal 18, masih bisa di-take action
-        // sepanjang tanggal 17 -- begitu ganti hari/masuk tanggal 18, udah kelewatan). Jadi
-        // aturannya: begitu tanggal HARI INI udah >= Required Date-nya sendiri (bukan H-1-nya),
-        // dan PR-nya masih Pending, otomatis Expired.
-        // PR yang Expired otomatis gak bisa di-approve/reject lagi (tombolnya ilang sendiri,
-        // liat computed canEditPR yang syaratnya status === 'Pending') dan otomatis gak akan
-        // pernah jadi PO (PO cuma kebikin pas approvePR() jalan, dan itu gak bisa lagi soalnya
-        // PR-nya udah bukan Pending).
-        // Dicek tiap kali fetchData() jalan (abis login & abis ada perubahan data) -- ini
-        // lapisan KEDUA doang buat reaksi cepet pas ada yang buka app; lapisan utamanya sekarang
-        // pg_cron di database (jalan sendiri tiap jam, gak nunggu ada yang buka app). Pake
-        // todayWIB() (bukan new Date() polos) biar "hari ini"-nya konsisten sama pg_cron,
-        // gak peduli device yang buka app lagi di WIB/WITA/WIT.
         const expireOverduePRs = async () => {
             const todayStr = todayWIB();
             const overdue = prs.value.filter(pr => pr.status === 'Pending' && pr.required_date && pr.required_date <= todayStr);
@@ -1365,26 +1228,26 @@ const app = createApp({
                 console.error('Gagal auto-expire PR:', error);
                 return;
             }
-            overdue.forEach(pr => { pr.status = 'Expired'; }); // optimistic update biar langsung keliatan gak usah nunggu refetch
+            overdue.forEach(pr => { pr.status = 'Expired'; });
         };
 
         const fetchData = async () => {
             try {
-                const [prRes, poRes, branchRes, productRes, itemRes] = await Promise.all([
+                const [prRes, poRes, branchRes, productRes, itemRes, picRes] = await Promise.all([
                     supabaseClient.from('purchase_requests').select('*').order('created_at', { ascending: false }),
                     supabaseClient.from('purchase_orders').select('*, purchase_requests(pr_number, branch_name, brand, shipping_category, pic, required_date)').order('created_at', { ascending: false }),
                     supabaseClient.from('master_branches').select('*').order('branch_name'),
                     supabaseClient.from('master_products').select('*').order('name'),
                     supabaseClient.from('purchase_request_items').select('*').order('id'),
+                    supabaseClient.from('master_pics').select('*').order('pic_name'),
                 ]);
                 prs.value = prRes.data || [];
                 pos.value = poRes.data || [];
                 masterBranches.value = branchRes.data || [];
                 masterProducts.value = productRes.data || [];
                 prItems.value = itemRes.data || [];
+                masterPics.value = picRes.data || [];
 
-                // Cuma AM/Master yang punya hak UPDATE status PR di RLS -- SM gak perlu/gak
-                // bisa nge-trigger ini (update-nya bakal ke-block RLS aja kalo dipaksa).
                 if (userRole.value === 'AM' || userRole.value === 'Master') {
                     await expireOverduePRs();
                 }
@@ -1393,7 +1256,6 @@ const app = createApp({
             }
         };
 
-        // UPLOAD EXCEL PRODUK -- satu-satunya cara nambah produk sekarang
         const handleProductFileUpload = async (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -1415,9 +1277,7 @@ const app = createApp({
                     toast(`Gagal! Kolom nama produk tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`, 'error');
                     return;
                 }
-                // Kolom Brand & Unit OPSIONAL -- Brand kosong = shared (keliatan di semua brand).
-                // Unit kosong dianggap NULL (produk sama boleh punya beberapa baris beda unit,
-                // misal "Air Mineral 220ml" ada yang Carton ada yang pcs).
+
                 const brandCol = findCol(rows[0], 'Brand', 'brand', 'Merk', 'merk');
                 const unitCol = findCol(rows[0], 'Unit', 'unit', 'Satuan', 'satuan');
 
@@ -1454,6 +1314,81 @@ const app = createApp({
             }
         };
 
+        const handlePicFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            isLoading.value = true;
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    toast('File Excel kosong!', 'warn');
+                    return;
+                }
+
+                const nameCol = findCol(rows[0], 'PIC', 'pic', 'Nama PIC', 'nama_pic');
+                if (!nameCol) {
+                    toast(`Gagal! Kolom PIC tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`, 'error');
+                    return;
+                }
+
+                const shippingCol = findCol(rows[0], 'SHIPPING', 'shipping', 'Shipping Category', 'shipping_category');
+                const brandCol = findCol(rows[0], 'BRAND', 'brand', 'Merk', 'merk');
+
+                const payload = rows
+                    .map((row) => ({
+                        pic_name: String(row[nameCol] ?? '').trim(),
+                        shipping: shippingCol ? (String(row[shippingCol] ?? '').trim() || null) : null,
+                        brand: brandCol ? (String(row[brandCol] ?? '').trim() || null) : null
+                    }))
+                    .filter((r) => r.pic_name && r.pic_name.toLowerCase() !== 'nan');
+
+                if (payload.length === 0) {
+                    toast('Gak ada baris valid buat diimport.', 'warn');
+                    return;
+                }
+
+                const { error } = await supabaseClient
+                    .from('master_pics')
+                    .upsert(payload, { onConflict: 'pic_name,shipping,brand', ignoreDuplicates: true });
+
+                if (error) {
+                    toast('Gagal upload: ' + error.message, 'error');
+                    return;
+                }
+
+                toast(`Berhasil diproses ${payload.length} baris PIC!`, 'success');
+                fetchData();
+            } catch (err) {
+                console.error(err);
+                toast('Gagal memproses file Excel.', 'error');
+            } finally {
+                isLoading.value = false;
+                event.target.value = '';
+            }
+        };
+
+        const addPic = async () => {
+            if (!addPicForm.value.pic_name.trim()) { toast('Nama PIC gak boleh kosong.', 'warn'); return; }
+            if (!addPicForm.value.shipping) { toast('Pilih Shipping dulu ya.', 'warn'); return; }
+            const { error } = await supabaseClient.from('master_pics').insert({
+                pic_name: addPicForm.value.pic_name.trim(),
+                shipping: addPicForm.value.shipping,
+                brand: addPicForm.value.brand || null
+            });
+            if (error) {
+                toast('Gagal simpan PIC: ' + error.message, 'error');
+                return;
+            }
+            addPicForm.value = { pic_name: '', shipping: '', brand: '' };
+            toast('PIC berhasil ditambahkan!', 'success');
+            fetchData();
+        };
+
         const submitPR = async () => {
             // Validasi manual -- dropdown Cabang & Kategori Pengiriman sekarang komponen custom
             // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
@@ -1463,14 +1398,12 @@ const app = createApp({
             if (form.value.shipping_category === 'Indirect' && !form.value.pic) { toast('Pilih PIC dulu ya.', 'warn'); return; }
             if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
             try {
-                // Brand PR ini ngikut brand cabang yang dipilih (bukan brand user, biar Master
-                // yang bisa akses semua brand tetep ke-tag PR-nya dengan bener)
+
                 const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
                 const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
 
                 const prNumber = await generateNumber('PR');
 
-                // Bikin dulu PR-nya (tanpa item), .select().single() biar dapet id-nya balik
                 const { data: newPR, error } = await supabaseClient.from('purchase_requests').insert({
                     pr_number: prNumber,
                     branch_name: form.value.branch_name,
@@ -1488,7 +1421,6 @@ const app = createApp({
                     return;
                 }
 
-                // Abis PR-nya kebikin, baru masukin semua item yang udah dikumpulin di form.items
                 const itemsPayload = form.value.items.map(it => ({
                     pr_id: newPR.id,
                     item_name: it.item_name,
@@ -1508,33 +1440,25 @@ const app = createApp({
             }
         };
 
-        // Buka layar Detail/Edit PR (AM/Master pake ini buat ngecek item yang direquest SM)
         const openEditPR = (pr) => {
             editingPRId.value = pr.id;
             editPRNewItemProductId.value = '';
             editPRNewItemQty.value = null;
             currentTab.value = 'edit-pr';
-            // #hash-nya nunjuk ke PR spesifik ini (bukan cuma 'edit-pr' doang) -- biar tombol
-            // Edit/View di baris tabel punya "alamat" sendiri-sendiri (klik kanan -> Buka di tab
-            // baru / Salin alamat link beneran nyampe ke Detail PR yang sama, bukan cuma ke tab
-            // Purchase Request kosong).
+
             try { history.replaceState(null, '', '#edit-pr/' + pr.id); } catch (e) {}
         };
         const backFromEditPR = () => {
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
         };
-        // Dipake di @click tombol Edit/View tiap baris PR -- href-nya udah nunjuk ke #edit-pr/<id>
-        // (lihat markup di index.html), sama kayak goToTab: klik kiri polos pindah di halaman yang
-        // sama, Ctrl/Cmd/Shift+klik / klik kanan "Buka di tab baru" dibiarin jalan normal ke href-nya.
+
         const goToEditPR = (e, pr) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             openEditPR(pr);
         };
-        // Kalo #hash di URL nunjuk ke "edit-pr/<id>" yang valid (misal dibuka dari link "Buka di
-        // tab baru"), langsung buka Detail PR itu. Dipanggil abis fetchData() -- butuh prs.value
-        // udah keisi dulu, soalnya PR-nya dicari dari situ.
+
         const tryOpenPRFromHash = () => {
             const h = (window.location.hash || '').replace('#', '');
             const m = h.match(/^edit-pr\/(\d+)$/);
@@ -1555,8 +1479,6 @@ const app = createApp({
             }).eq('id', prId);
         };
 
-        // Nambah item baru ke PR yang lagi di-review -- LANGSUNG kesimpen ke DB (auto-save),
-        // gak pake tombol "Simpan" terpisah, soalnya PR-nya emang udah ada/tersimpan.
         const addItemToEditingPR = async () => {
             if (!editingPR.value) return;
             if (!editPRNewItemProductId.value) { toast('Pilih barang dulu ya.', 'warn'); return; }
@@ -1640,7 +1562,6 @@ const app = createApp({
             fetchData();
         };
 
-        // UPLOAD EXCEL -- parse langsung di browser pake SheetJS, gak lewat backend sama sekali
         const handleFileUpload = async (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -1680,7 +1601,6 @@ const app = createApp({
                     return;
                 }
 
-                // upsert + ignoreDuplicates biar cabang yang udah ada gak bikin gagal semua batch
                 const { error } = await supabaseClient
                     .from('master_branches')
                     .upsert(payload, { onConflict: 'branch_name', ignoreDuplicates: true });
@@ -1714,6 +1634,7 @@ const app = createApp({
         };
         const startEditBranch = (b) => {
             editingProductId.value = null; // tutup edit produk kalo lagi kebuka
+            editingPicId.value = null;
             editingBranchId.value = b.id;
             editBranchForm.value = { branch_name: b.branch_name, branch_code: b.branch_code || '', brand: b.brand || '' };
         };
@@ -1747,9 +1668,6 @@ const app = createApp({
             fetchData();
         };
 
-        // ============================================================
-        // EDIT & HAPUS -- MASTER PRODUCT (Master only, dicek juga sama RLS di DB)
-        // ============================================================
         const toggleProductSelect = (id) => {
             const idx = selectedProductIds.value.indexOf(id);
             if (idx === -1) selectedProductIds.value.push(id);
@@ -1759,7 +1677,8 @@ const app = createApp({
             selectedProductIds.value = allProductsSelected.value ? [] : filteredProducts.value.map(p => p.id);
         };
         const startEditProduct = (p) => {
-            editingBranchId.value = null; // tutup edit cabang kalo lagi kebuka
+            editingBranchId.value = null;
+            editingPicId.value = null;
             editingProductId.value = p.id;
             editProductForm.value = { name: p.name, unit: p.unit || '', brand: p.brand || '' };
         };
@@ -1793,11 +1712,55 @@ const app = createApp({
             fetchData();
         };
 
-        // Kalau session Supabase masih ada (misal habis refresh halaman), langsung login otomatis
-        // (brand mismatch gak perlu dicek ulang di sini karena session ini emang udah lolos validasi pas login pertama)
+        // ============================================================
+        // EDIT & HAPUS -- MASTER PIC (Master only, dicek juga sama RLS di DB)
+        // ============================================================
+        const togglePicSelect = (id) => {
+            const idx = selectedPicIds.value.indexOf(id);
+            if (idx === -1) selectedPicIds.value.push(id);
+            else selectedPicIds.value.splice(idx, 1);
+        };
+        const toggleSelectAllPics = () => {
+            selectedPicIds.value = allPicsSelected.value ? [] : filteredPics.value.map(p => p.id);
+        };
+        const startEditPic = (p) => {
+            editingBranchId.value = null;
+            editingProductId.value = null;
+            editingPicId.value = p.id;
+            editPicForm.value = { pic_name: p.pic_name, shipping: p.shipping || '', brand: p.brand || '' };
+        };
+        const cancelEditPic = () => { editingPicId.value = null; };
+        const saveEditPic = async (id) => {
+            if (!editPicForm.value.pic_name.trim()) { toast('Nama PIC gak boleh kosong.', 'warn'); return; }
+            const { error } = await supabaseClient
+                .from('master_pics')
+                .update({
+                    pic_name: editPicForm.value.pic_name.trim(),
+                    shipping: editPicForm.value.shipping || null,
+                    brand: editPicForm.value.brand || null
+                })
+                .eq('id', id);
+            if (error) {
+                toast('Gagal simpan: ' + error.message, 'error');
+                return;
+            }
+            editingPicId.value = null;
+            fetchData();
+        };
+        const deletePics = async (ids) => {
+            if (ids.length === 0) return;
+            if (!(await confirmDialog(`Yakin mau hapus ${ids.length} PIC ini? Gak bisa di-undo.`, { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
+            const { error } = await supabaseClient.from('master_pics').delete().in('id', ids);
+            if (error) {
+                toast('Gagal hapus: ' + error.message, 'error');
+                return;
+            }
+            selectedPicIds.value = selectedPicIds.value.filter(id => !ids.includes(id));
+            fetchData();
+        };
+
         onMounted(async () => {
-            // Balikin brand yang terakhir dibuka (penting buat Master, yang gak kekunci
-            // brand-nya di database -- tanpa ini, refresh halaman bakal balik ngeliat semua brand lagi)
+
             try {
                 const savedBrand = localStorage.getItem('activeBrandChoice');
                 if (savedBrand) selectedBrand.value = savedBrand;
@@ -1805,9 +1768,6 @@ const app = createApp({
 
             let { data: { session } } = await supabaseClient.auth.getSession();
 
-            // Tab ini belom punya sesi sendiri (sessionStorage-nya kosong) -- coba minta ke tab
-            // lain yang mungkin masih login (kasus paling umum: tab ini abis kebuka dari klik-kanan
-            // "Buka di tab baru" di sidebar/tombol Edit).
             if (!session) {
                 const shared = await requestSessionFromOtherTabs();
                 if (shared?.access_token && shared?.refresh_token) {
@@ -1825,16 +1785,13 @@ const app = createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
-                restoreLastTab(role); // <-- ini yang bikin tetep stay di tab yang sama pas refresh
+                restoreLastTab(role);
                 startIdleWatcher();
                 await fetchData();
-                // Baru dicek ABIS fetchData selesai -- kalo hash-nya nunjuk ke Detail PR spesifik
-                // (#edit-pr/<id>) yang valid, ini nimpa balik tab yang barusan dibalikin restoreLastTab().
+
                 tryOpenPRFromHash();
             }
 
-            // Jaga-jaga: kalo user ngetik/ganti #hash manual di address bar pas udah login
-            // (bukan lewat klik sidebar/tombol Edit), ikutin pindah ke tab yang sesuai.
             window.addEventListener('hashchange', () => {
                 if (!isLoggedIn.value) return;
                 if (tryOpenPRFromHash()) return;
@@ -1857,18 +1814,20 @@ const app = createApp({
             prDateRange, poDateRange,
             prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, searchQuery, prBranchFilter,
             poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poSearchQuery, poBranchFilter,
-            masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
-            SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, PIC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
+            masterBranches, masterProducts, masterPics, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
+            SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, picOptions, PIC_SHIPPING_SELECT_OPTIONS, BRAND_SELECT_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
             editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
             openEditPR, goToEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
-            viewingPO, viewingPOItems, openViewPO, backFromViewPO,
-            branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts,
-            handleFileUpload, handleProductFileUpload,
+            viewingPO, viewingPOItems, openViewPO, backFromViewPO, exportPOExcel, exportAllPOExcel,
+            branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts, picSearchQuery, filteredPics,
+            handleFileUpload, handleProductFileUpload, handlePicFileUpload,
             editingBranchId, editBranchForm, selectedBranchIds, allBranchesSelected,
             toggleBranchSelect, toggleSelectAllBranches, startEditBranch, cancelEditBranch, saveEditBranch, deleteBranches,
             editingProductId, editProductForm, selectedProductIds, allProductsSelected,
             toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
+            editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
+            togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }
