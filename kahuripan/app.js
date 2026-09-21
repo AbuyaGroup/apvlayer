@@ -191,6 +191,114 @@ const SearchableSelect = {
     }
 };
 
+// ============================================================
+// KOMPONEN DROPDOWN MULTISELECT -- checkbox list buat milih LEBIH DARI SATU opsi sekaligus
+// (dipake buat filter Branch di Daftar PR/PO & Dashboard). Strukturnya SENGAJA disamain persis
+// kayak SearchableSelect (pake class ss-wrap/ss-control/ss-panel/ss-search/ss-options/ss-empty
+// yang SAMA, bukan bikin class sendiri) -- biar box-nya (padding, tinggi, warna, posisi chevron)
+// keliatan IDENTIK sama dropdown lain (Request Number, Status, dst), gak ada bedanya. Search
+// buat nyaring opsi juga ditaro DI DALEM PANEL (.ss-search) pas kebuka, sama persis kayak
+// SearchableSelect versi :searchable="true", bukan input nempel di box utamanya.
+// Bedanya cuma: modelValue-nya ARRAY, box utamanya nampilin RINGKASAN teks doang (bukan chip
+// satu-satu) biar box-nya SELALU 1 baris & UKURANNYA GAK BERUBAH walau kepilih banyak cabang,
+// dan checkbox-nya BARU ke-apply (emit ke parent) pas tombol "Apply" di-klik / di-Clear.
+// Props: modelValue (array), options: [{ value, label }], placeholder
+// ============================================================
+const MultiSelectDropdown = {
+    props: {
+        modelValue: { type: Array, default: () => [] },
+        options: { type: Array, default: () => [] },
+        placeholder: { type: String, default: '-- Pilih --' }
+    },
+    emits: ['update:modelValue'],
+    template: `
+        <div class="ss-wrap" ref="wrapEl">
+            <div class="ss-control" :class="{ open: isOpen }" tabindex="0"
+                 @click="toggleOpen" @keydown.enter.prevent="toggleOpen" @keydown.esc="closeDropdown">
+                <span :class="{ 'ss-placeholder': modelValue.length === 0 }">{{ summaryLabel }}</span>
+                <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+            </div>
+            <Transition name="pop">
+                <div v-if="isOpen" class="ss-panel" @click.stop>
+                    <div class="ss-search" @click.stop>
+                        <i class="bi bi-search"></i>
+                        <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
+                    </div>
+                    <div class="ss-options">
+                        <div v-for="opt in filteredOptions" :key="opt.value" class="ms-option" @click="togglePending(opt.value)">
+                            <span class="ms-checkbox" :class="{ checked: pending.includes(opt.value) }"><i v-if="pending.includes(opt.value)" class="bi bi-check-lg"></i></span>
+                            <span>{{ opt.label }}</span>
+                        </div>
+                        <div v-if="filteredOptions.length === 0" class="ss-empty">Gak ada yang cocok.</div>
+                    </div>
+                    <div class="ms-panel-footer">
+                        <button type="button" class="ms-clear-btn" @click="clearPending">Clear</button>
+                        <button type="button" class="btn-primary ms-apply-btn" @click="applyPending">Apply</button>
+                    </div>
+                </div>
+            </Transition>
+        </div>
+    `,
+    setup(props, { emit }) {
+        const isOpen = ref(false);
+        const searchQuery = ref('');
+        const wrapEl = ref(null);
+        const searchInput = ref(null);
+        // Salinan lokal sementara pas dropdown lagi kebuka -- checkbox nyentang/nglepas cuma
+        // ngubah ini dulu, BELUM ke-emit ke parent sampe tombol Apply di-klik.
+        const pending = ref([...props.modelValue]);
+
+        const labelFor = (v) => {
+            const found = props.options.find(o => o.value === v);
+            return found ? found.label : v;
+        };
+
+        // Ringkasan yang keliatan di box utama pas ketutup: kosong -> placeholder, 1 kepilih ->
+        // nama cabangnya, lebih dari 1 -> "N dipilih" -- SELALU 1 baris (dipotong "..." kalo
+        // kepanjangan lewat rule .ss-control > span yang udah ada), jadi box-nya gak pernah melar.
+        const summaryLabel = computed(() => {
+            if (props.modelValue.length === 0) return props.placeholder;
+            if (props.modelValue.length === 1) return labelFor(props.modelValue[0]);
+            return props.modelValue.length + ' dipilih';
+        });
+
+        // Nyaring TAMPILAN list opsi doang (berdasarkan ketikan di search box DALEM panel) --
+        // gak ngaruh ke pending/modelValue.
+        const filteredOptions = computed(() => {
+            if (!searchQuery.value) return props.options;
+            const q = searchQuery.value.toLowerCase();
+            return props.options.filter(o => String(o.label).toLowerCase().includes(q));
+        });
+
+        const closeDropdown = () => { isOpen.value = false; };
+        const toggleOpen = () => {
+            isOpen.value = !isOpen.value;
+            if (isOpen.value) {
+                pending.value = [...props.modelValue]; // reset ke selection terakhir tiap dibuka
+                searchQuery.value = '';
+                nextTick(() => searchInput.value && searchInput.value.focus());
+            }
+        };
+        const togglePending = (v) => {
+            const idx = pending.value.indexOf(v);
+            if (idx === -1) pending.value.push(v); else pending.value.splice(idx, 1);
+        };
+        const clearPending = () => { pending.value = []; };
+        const applyPending = () => {
+            emit('update:modelValue', [...pending.value]);
+            closeDropdown();
+        };
+
+        const handleClickOutside = (e) => {
+            if (wrapEl.value && !wrapEl.value.contains(e.target)) closeDropdown();
+        };
+        onMounted(() => document.addEventListener('click', handleClickOutside));
+        onUnmounted(() => document.removeEventListener('click', handleClickOutside));
+
+        return { isOpen, searchQuery, wrapEl, searchInput, pending, summaryLabel, filteredOptions, toggleOpen, closeDropdown, togglePending, clearPending, applyPending };
+    }
+};
+
 // Bikin format tanggal Date -> 'YYYY-MM-DD' (dipake barengan sama DateRangeFilter & DatePickerField)
 function dateToISO(d) {
     if (!d) return '';
@@ -406,18 +514,10 @@ const PIC_OPTIONS = [
     { value: 'Caca', label: 'Caca' }
 ];
 
-// Dropdown FILTER Kategori Pengiriman (Daftar PR & Daftar PO) -- fixed 2 opsi + "All Shipping"
-// biar bisa direset ke gak difilter sama sekali. Beda sama SHIPPING_CATEGORY_OPTIONS yang label-nya
-// lebih panjang (dipake di form Buat PR) -- di sini sengaja label-nya diringkes.
-const SHIPPING_FILTER_OPTIONS = [
-    { value: '', label: 'All Shipping' },
-    { value: 'Direct', label: 'Direct' },
-    { value: 'Indirect', label: 'Indirect' }
-];
-
-// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search (manual ketik di
-// searchbox sampingnya) di Daftar PR. PIC dicari lewat sini (bukan dropdown filter fixed-opsi
-// terpisah) soalnya nama PIC bisa macem-macem/nambah kapan aja, jadi lebih fleksibel ketik manual.
+// Opsi dropdown "Select Target Column" -- pilih kolom yang mau di-search di Daftar PR. Kalo yang
+// dipilih "Branch", search box di sampingnya DIGANTI jadi multi-select Branch (bukan text box
+// biasa) -- field lain (Request Number/PIC/Notes) tetep text box biasa & diketik manual (PIC bisa
+// macem-macem/nambah kapan aja jadi lebih fleksibel diketik daripada dropdown fixed).
 const PR_SEARCH_FIELDS = [
     { value: 'pr_number', label: 'Request Number' },
     { value: 'branch_name', label: 'Branch' },
@@ -433,86 +533,91 @@ const PO_SEARCH_FIELDS = [
     { value: 'pic', label: 'PIC' }
 ];
 
+// Dropdown FILTER Kategori Pengiriman (Daftar PR & Daftar PO) -- fixed 2 opsi + "All Shipping"
+// biar bisa direset ke gak difilter sama sekali. Beda sama SHIPPING_CATEGORY_OPTIONS yang label-nya
+// lebih panjang (dipake di form Buat PR) -- di sini sengaja label-nya diringkes.
+const SHIPPING_FILTER_OPTIONS = [
+    { value: '', label: 'All Shipping' },
+    { value: 'Direct', label: 'Direct' },
+    { value: 'Indirect', label: 'Indirect' }
+];
+
 // ============================================================
-// DIREKTIF v-stickyroll -- "Yoyo / Ping-Pong" auto-scroll buat list dashboard yang bisa
-// kepanjangan (Notifikasi PR Hampir Expired, Top Item by PO, Top Item by Qty).
-// v-stickyroll="true" (item > 5) bikin isinya auto-scroll pelan ke bawah sampe abis, terus
-// BALIK ARAH scroll ke atas sampe balik ke nomor 1, gitu terus bolak-balik kayak yoyo (BUKAN
-// loop satu-arah tanpa akhir kayak versi sebelumnya) -- jadi kontennya CUKUP 1 salinan aja,
-// gak perlu di-duplikat 2x lagi di template.
-//
-// Container-nya beneran overflow-y:auto ASLI (native scroll bawaan browser) -- auto-scroll-nya
-// cuma gerakin el.scrollTop bolak-balik antara 0 (paling atas) dan max (scrollHeight-
-// clientHeight, paling bawah), jadi gak akan pernah "nyangkut" (gak ada perhitungan
-// wrap-around yang bisa meleset kayak versi loop sebelumnya -- di sini cuma mantul pas nyentuh
-// batas asli, yang emang udah otomatis dijaga sama browser).
-//
-// Manual scroll TETEP bisa (sesuai request) tapi TANPA drag custom -- user tinggal scroll biasa
-// pake mouse wheel/trackpad/scrollbar/swipe touch (native), gak perlu klik-tahan-geser. Auto-
-// scroll otomatis pause pas lagi di-hover/disentuh biar gak berantem sama scroll manual-nya.
+// DIREKTIF v-stickyroll -- "stickyroll biasa" buat list dashboard yang bisa kepanjangan
+// (Notifikasi PR Hampir Expired, Top Item by PO, Top Item by Qty).
+// v-stickyroll="true" (item > 5) HANYA mepasin tinggi container biar pas nampung persis 5
+// baris pertama -- TIDAK ADA auto-scroll/animasi apapun (Yoyo/Ping-Pong sudah di-disable).
+// Kalo item-nya lebih dari 5, baris ke-6 dst otomatis ke-luar area & butuh di-scroll MANUAL
+// (mouse wheel/trackpad/scrollbar/swipe touch native) buat keliatan -- murni native scroll
+// bawaan browser, gerakannya 100% dikontrol user, gak ada gerakan otomatis sama sekali.
 // ============================================================
-const STICKYROLL_SPEED = 24; // px per detik -- pelan & smooth
+const STICKYROLL_ROWS = 5;   // tinggi container dipas-in buat nampung persis segini baris
+
+// Ngukur tinggi beneran dari N baris pertama LANGSUNG dari DOM (bukan nebak angka px tetap
+// kayak sebelumnya) -- soalnya tinggi 1 baris beda-beda tiap list (Notifikasi vs Top Item),
+// beda font/zoom browser, dsb. Kemarin dipatok "max-height:280px" doang, dan itu KEBETULAN
+// pas banget sama tinggi 6 baris pendek (1 baris teks) di beberapa kondisi -- jadi kelihatannya
+// "gak overflow apa-apa, makanya gak ada yang di-scroll" (bukan animasinya yang rusak, konten-
+// nya emang kebetulan udah muat semua). Diukur dari DOM langsung biar SELALU presisi: berapapun
+// tinggi baris sebenernya (misalnya teksnya wrap ke 2 baris, atau beda ukuran font), container-
+// nya selalu dipas-in nampung PERSIS 5 baris pertama -- baris ke-6 dst PASTI ke-luar area & PASTI
+// kebutuhan di-scroll buat keliatan, gak pernah "kebetulan muat semua" lagi.
+function measureStickyrollMaxHeight(el) {
+    const track = el.querySelector('.stickyroll-track');
+    if (!track || track.children.length === 0) return null;
+    const n = Math.min(STICKYROLL_ROWS, track.children.length);
+    const lastRow = track.children[n - 1];
+    return lastRow.offsetTop + lastRow.offsetHeight;
+}
+
+// Nyalain/matiin fade di atas & bawah container SESUAI posisi scroll SEKARANG -- bukan dekorasi
+// statis yang nempel diem di tempat yang sama. Fade ATAS cuma nongol kalo udah di-scroll turun
+// dikit (nandain ada konten yang ke-skip di atas), fade BAWAH cuma nongol kalo MASIH ada konten
+// di bawah yang belum keliatan (scrollTop belum nyampe max). Begitu udah mentok scroll paling
+// bawah, fade bawah otomatis ilang -- gak lagi nutupin baris terakhir yang padahal udah keliatan
+// penuh (ini yang bikin baris ke-5 kemarin keliatan "pudar" padahal itu baris terakhir yang valid).
+function updateStickyrollEdgeFade(el) {
+    if (!el._srActive) { el.classList.remove('at-top', 'at-bottom'); return; }
+    const max = el.scrollHeight - el.clientHeight;
+    el.classList.toggle('at-top', el.scrollTop <= 1);
+    el.classList.toggle('at-bottom', max <= 1 || el.scrollTop >= max - 1);
+}
 
 const stickyrollDirective = {
     mounted(el, binding) {
         el._srActive = !!binding.value;
-        el._srPaused = false;
-        el._srDir = 1; // 1 = lagi turun, -1 = lagi naik
-        el._srLastTs = null;
-        // Posisi discroll disimpen di variabel float SENDIRI (bukan dibaca balik dari
-        // el.scrollTop) -- soalnya el.scrollTop itu di-BULATIN browser ke bilangan bulat
-        // tiap kali di-assign. Speed pelan kita (24px/detik) increment-nya per frame cuma
-        // ~0.3-0.4px -- kalo langsung ditambahin ke el.scrollTop, bagian desimalnya ke-buang
-        // TIAP FRAME sebelum sempet numpuk jadi 1px penuh, jadi keliatannya diem aja gak
-        // pernah gerak sama sekali (ini yang bikin auto-scroll-nya gak jalan kemarin).
-        el._srPos = el.scrollTop;
 
-        el._srPause = () => { el._srPaused = true; };
-        el._srResume = () => { el._srPaused = false; };
-        el.addEventListener('mouseenter', el._srPause);
-        el.addEventListener('mouseleave', el._srResume);
-        el.addEventListener('touchstart', el._srPause, { passive: true });
-        el.addEventListener('touchend', el._srResume);
-        // Kalo user scroll manual (wheel/scrollbar/swipe), samain posisi float kita ke posisi
-        // scroll yang baru -- biar pas auto-scroll lanjut lagi, dia nerusin dari situ, bukan
-        // "lompat balik" ke posisi lama sebelum di-scroll manual.
-        el._srOnScroll = () => { el._srPos = el.scrollTop; };
+        const syncMaxHeight = () => {
+            if (!el._srActive) { el.style.maxHeight = ''; return; }
+            const h = measureStickyrollMaxHeight(el);
+            if (h) el.style.maxHeight = h + 'px';
+        };
+        const syncAll = () => { syncMaxHeight(); updateStickyrollEdgeFade(el); };
+
+        el._srOnScroll = () => updateStickyrollEdgeFade(el);
         el.addEventListener('scroll', el._srOnScroll, { passive: true });
 
-        const tick = (ts) => {
-            if (!el.isConnected) return; // elemen udah ke-unmount, stop loop-nya
-            if (el._srActive) {
-                if (el._srLastTs == null) el._srLastTs = ts;
-                const dt = ts - el._srLastTs;
-                el._srLastTs = ts;
-                if (!el._srPaused) {
-                    const max = el.scrollHeight - el.clientHeight;
-                    if (max > 0) {
-                        el._srPos += el._srDir * (STICKYROLL_SPEED * dt) / 1000;
-                        if (el._srPos >= max) { el._srPos = max; el._srDir = -1; }
-                        else if (el._srPos <= 0) { el._srPos = 0; el._srDir = 1; }
-                        el.scrollTop = el._srPos;
-                    }
-                }
-            } else {
-                el._srLastTs = null;
-            }
-            el._srRaf = requestAnimationFrame(tick);
-        };
-        el._srRaf = requestAnimationFrame(tick);
+        // ResizeObserver -- kalo lebar kolom berubah (resize window/zoom browser) yang bikin
+        // teks item ikut wrap beda jumlah baris, tinggi 5-baris-pertama & status fade ke-ukur
+        // ulang otomatis.
+        const track = el.querySelector('.stickyroll-track');
+        el._srRO = new ResizeObserver(() => syncAll());
+        if (track) el._srRO.observe(track);
+        syncAll();
     },
     updated(el, binding) {
         const nowActive = !!binding.value;
-        if (!nowActive && el._srActive) { el._srPos = 0; el.scrollTop = 0; el._srDir = 1; }
+        if (!nowActive && el._srActive) { el.scrollTop = 0; el.style.maxHeight = ''; }
         el._srActive = nowActive;
+        if (nowActive) {
+            const h = measureStickyrollMaxHeight(el);
+            if (h) el.style.maxHeight = h + 'px';
+        }
+        updateStickyrollEdgeFade(el);
     },
     unmounted(el) {
-        if (el._srRaf) cancelAnimationFrame(el._srRaf);
-        el.removeEventListener('mouseenter', el._srPause);
-        el.removeEventListener('mouseleave', el._srResume);
+        if (el._srRO) el._srRO.disconnect();
         el.removeEventListener('scroll', el._srOnScroll);
-        el.removeEventListener('touchstart', el._srPause);
-        el.removeEventListener('touchend', el._srResume);
     }
 };
 
@@ -659,21 +764,38 @@ const app = createApp({
             currentTab.value = 'daftar-pr';
         };
 
-        const searchQuery = ref('');
         const filterStatus = ref('');
         const prFilterShipping = ref(''); // filter dropdown Shipping di Daftar PR ('' = semua)
-        // Search Daftar PR: dropdown "Select Target Column" (kolom mana yang di-search) + range tanggal Required Date
-        const prSearchField = ref('pr_number');
-        const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
         const prDateRange = ref({ from: '', to: '' });
-        // Search Daftar PO: sama polanya kayak PR
-        const poSearchQuery = ref('');
-        const poSearchField = ref('po_number');
-        const poSearchFieldLabel = computed(() => (PO_SEARCH_FIELDS.find(f => f.value === poSearchField.value) || {}).label || '');
         const poDateRange = ref({ from: '', to: '' });
         const poFilterShipping = ref(''); // filter dropdown Shipping di Daftar PO ('' = semua)
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
+
+        // ============================================================
+        // FILTER "Select Target Column" + search box di Daftar PR/PO -- pilih dulu kolom yang mau
+        // di-search (dropdown), terus ketik query-nya di search box sampingnya. KHUSUS kolom
+        // "Branch": search box-nya DIGANTI jadi multi-select Branch (prBranchFilter/poBranchFilter,
+        // array) + tombol Apply yang keliatan di sampingnya -- field lain (Request/PO Number, PIC,
+        // Notes) tetep pake 1 search box teks biasa (searchQuery/poSearchQuery).
+        // ============================================================
+        const prSearchField = ref('pr_number');
+        const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
+        const searchQuery = ref('');
+        const prBranchFilter = ref([]);
+
+        const poSearchField = ref('po_number');
+        const poSearchFieldLabel = computed(() => (PO_SEARCH_FIELDS.find(f => f.value === poSearchField.value) || {}).label || '');
+        const poSearchQuery = ref('');
+        const poBranchFilter = ref([]);
+
+        // ============================================================
+        // FILTER Dashboard -- Branch (multiselect) & range tanggal di atas Dashboard Overview.
+        // CUMA mempengaruhi donut chart + 2 list Top Items, notifikasi TETEP nampilin semua
+        // (sesuai request eksplisit -- notifikasi PR hampir Expired gak boleh ke-filter).
+        // ============================================================
+        const dashBranchFilter = ref([]);
+        const dashDateRange = ref({ from: '', to: '' });
 
         // Kelompokin item per pr_id biar gampang dipanggil di template: itemsByPrId[pr.id]
         const itemsByPrId = computed(() => {
@@ -793,15 +915,33 @@ const app = createApp({
         // ============================================================
         // DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
         // ============================================================
+        // brandPRs/brandPOs abis di-filter lagi pake filter Branch + range tanggal Dashboard
+        // (dashBranchFilter/dashDateRange) -- CUMA dipake sama donut chart & 2 list Top Items,
+        // notifikasi (expiringSoonPRs di bawah) sengaja TETEP pake brandPRs mentah (gak kefilter).
+        const dashFilteredPRs = computed(() => {
+            let result = brandPRs.value;
+            if (dashBranchFilter.value.length) result = result.filter(pr => dashBranchFilter.value.includes(pr.branch_name));
+            if (dashDateRange.value.from) result = result.filter(pr => pr.created_at && pr.created_at.slice(0, 10) >= dashDateRange.value.from);
+            if (dashDateRange.value.to) result = result.filter(pr => pr.created_at && pr.created_at.slice(0, 10) <= dashDateRange.value.to);
+            return result;
+        });
+        const dashFilteredPOs = computed(() => {
+            let result = brandPOs.value;
+            if (dashBranchFilter.value.length) result = result.filter(po => dashBranchFilter.value.includes(po.purchase_requests?.branch_name));
+            if (dashDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= dashDateRange.value.from);
+            if (dashDateRange.value.to) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= dashDateRange.value.to);
+            return result;
+        });
+
         // Jumlah PR per status (buat donut chart & 4 kotak angka di sampingnya)
         const prStatusCounts = computed(() => {
             const counts = { Pending: 0, Approved: 0, Rejected: 0, Expired: 0 };
-            brandPRs.value.forEach(pr => {
+            dashFilteredPRs.value.forEach(pr => {
                 if (Object.prototype.hasOwnProperty.call(counts, pr.status)) counts[pr.status]++;
             });
             return counts;
         });
-        const donutTotal = computed(() => brandPRs.value.length);
+        const donutTotal = computed(() => dashFilteredPRs.value.length);
 
         // Hitung tiap segmen donut: dash-array/offset buat gambar busur SVG-nya, plus posisi
         // (x,y) buat naro label persentase PAS DI PINGGIR donat-nya (bukan di tengah/di dalem).
@@ -859,7 +999,7 @@ const app = createApp({
         // masing-masing) tetep menang dibanding item yang cuma muncul di 1 PO tapi qty-nya 100.
         const topItemsByPOCount = computed(() => {
             const counts = {};
-            brandPOs.value.forEach(po => {
+            dashFilteredPOs.value.forEach(po => {
                 const items = itemsByPrId.value[po.pr_id] || [];
                 const uniqueNamesInThisPO = new Set(items.map(it => it.item_name));
                 uniqueNamesInThisPO.forEach(name => {
@@ -877,7 +1017,7 @@ const app = createApp({
         // ngitung total banyaknya barang yang dipesan.
         const topItemsByQtyCount = computed(() => {
             const totals = {};
-            brandPOs.value.forEach(po => {
+            dashFilteredPOs.value.forEach(po => {
                 const items = itemsByPrId.value[po.pr_id] || [];
                 items.forEach(it => {
                     totals[it.item_name] = (totals[it.item_name] || 0) + (Number(it.qty) || 0);
@@ -929,12 +1069,13 @@ const app = createApp({
             if (prFilterShipping.value) result = result.filter(pr => pr.shipping_category === prFilterShipping.value);
             if (prDateRange.value.from) result = result.filter(pr => pr.required_date && pr.required_date >= prDateRange.value.from);
             if (prDateRange.value.to) result = result.filter(pr => pr.required_date && pr.required_date <= prDateRange.value.to);
-            if (searchQuery.value) {
+            // Kolom "Branch" kepilih -> filter pake multi-select (prBranchFilter), kolom lain
+            // (Request Number/PIC/Notes) -> filter pake search box teks biasa (searchQuery).
+            if (prSearchField.value === 'branch_name') {
+                if (prBranchFilter.value.length) result = result.filter(pr => prBranchFilter.value.includes(pr.branch_name));
+            } else if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase();
-                result = result.filter(pr => {
-                    const raw = pr[prSearchField.value];
-                    return String(raw || '').toLowerCase().includes(query);
-                });
+                result = result.filter(pr => String(pr[prSearchField.value] || '').toLowerCase().includes(query));
             }
             const field = prSortField.value;
             const dir = prSortDir.value === 'asc' ? 1 : -1;
@@ -942,8 +1083,8 @@ const app = createApp({
             return result;
         });
 
-        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Branch/Shipping/PR Reference-nya
-        // ngikut PR induk (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
+        // Sama polanya kayak filteredPRs, cuma buat Daftar PO. Branch/PIC-nya ngikut PR induk
+        // (po.purchase_requests), soalnya PO sendiri gak nyimpen itu.
         const getPOSortVal = (po, field) => {
             if (field === 'po_number' || field === 'created_at') return po[field];
             return po.purchase_requests?.[field];
@@ -953,12 +1094,12 @@ const app = createApp({
             if (poFilterShipping.value) result = result.filter(po => po.purchase_requests?.shipping_category === poFilterShipping.value);
             if (poDateRange.value.from) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) >= poDateRange.value.from);
             if (poDateRange.value.to) result = result.filter(po => po.created_at && po.created_at.slice(0, 10) <= poDateRange.value.to);
-            if (poSearchQuery.value) {
+            if (poSearchField.value === 'branch_name') {
+                if (poBranchFilter.value.length) result = result.filter(po => poBranchFilter.value.includes(po.purchase_requests?.branch_name));
+            } else if (poSearchQuery.value) {
                 const query = poSearchQuery.value.toLowerCase();
                 result = result.filter(po => {
-                    let raw;
-                    if (poSearchField.value === 'po_number') raw = po.po_number;
-                    else raw = po.purchase_requests?.[poSearchField.value];
+                    const raw = poSearchField.value === 'po_number' ? po.po_number : po.purchase_requests?.[poSearchField.value];
                     return String(raw || '').toLowerCase().includes(query);
                 });
             }
@@ -1554,12 +1695,14 @@ const app = createApp({
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, backToBrandPicker,
-            currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, searchQuery, filterStatus,
+            currentTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
+            dashBranchFilter, dashDateRange,
             prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,
             prSortField, prSortDir, poSortField, poSortDir, toggleSortPR, toggleSortPO,
-            prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, prDateRange,
-            poSearchQuery, poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poDateRange,
+            prDateRange, poDateRange,
+            prSearchField, prSearchFieldLabel, PR_SEARCH_FIELDS, searchQuery, prBranchFilter,
+            poSearchField, poSearchFieldLabel, PO_SEARCH_FIELDS, poSearchQuery, poBranchFilter,
             masterBranches, masterProducts, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
             SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, PIC_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
@@ -1577,6 +1720,7 @@ const app = createApp({
     }
 })
     .component('searchable-select', SearchableSelect)
+    .component('multi-select', MultiSelectDropdown)
     .component('date-range-filter', DateRangeFilter)
     .component('date-picker-field', DatePickerField)
     .directive('stickyroll', stickyrollDirective)

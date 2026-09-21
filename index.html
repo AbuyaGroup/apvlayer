@@ -342,7 +342,7 @@
                                 <div class="field qty-field" style="margin-bottom:0;">
                                     <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
                                 </div>
-                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i> Tambah</button>
+                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i></button>
                             </div>
 
                             <div class="pr-item-list">
@@ -388,12 +388,15 @@
                             <div style="min-width: 140px;"><searchable-select v-model="prFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="prSearchField" :options="PR_SEARCH_FIELDS"></searchable-select></div>
-                                <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
+                                <div v-if="prSearchField === 'branch_name'" class="search-combo-branch">
+                                    <multi-select v-model="prBranchFilter" :options="branchOptions" placeholder="Select Branch"></multi-select>
+                                </div>
+                                <div v-else class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
                             </div>
                         </div>
                         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                             <date-range-filter v-model="prDateRange"></date-range-filter>
-                            <button class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i> Create Request</button>
+                            <button class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i></button>
                         </div>
                     </div>
                     <div class="produk-table-wrap table-scroll">
@@ -459,7 +462,7 @@
                             <div class="field qty-field" style="margin-bottom:0;">
                                 <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
                             </div>
-                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i> Tambah</button>
+                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i></button>
                         </div>
 
                         <div class="pr-item-list">
@@ -489,7 +492,10 @@
                             <div style="min-width: 140px;"><searchable-select v-model="poFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
                             <div class="search-combo">
                                 <div style="min-width: 160px;"><searchable-select v-model="poSearchField" :options="PO_SEARCH_FIELDS"></searchable-select></div>
-                                <div class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>
+                                <div v-if="poSearchField === 'branch_name'" class="search-combo-branch">
+                                    <multi-select v-model="poBranchFilter" :options="branchOptions" placeholder="Select Branch"></multi-select>
+                                </div>
+                                <div v-else class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + poSearchFieldLabel + '...'" v-model="poSearchQuery"></div>
                             </div>
                         </div>
                         <date-range-filter v-model="poDateRange"></date-range-filter>
@@ -555,7 +561,13 @@
                 <!-- TAB: DASHBOARD (juga jadi fallback default kalo currentTab lagi gak cocok sama tab manapun,
                      misal 'edit-pr' abis di-refresh tapi editingPR-nya udah null) -->
                 <div v-else key="dashboard">
-                    <h2 style="margin-bottom: 24px;">Dashboard Overview</h2>
+                    <div class="dash-header-row">
+                        <h2>Dashboard Overview</h2>
+                        <div class="dash-header-filters">
+                            <div style="min-width:200px;"><multi-select v-model="dashBranchFilter" :options="branchOptions" placeholder="All Branch"></multi-select></div>
+                            <date-range-filter v-model="dashDateRange"></date-range-filter>
+                        </div>
+                    </div>
 
                     <!-- DONUT CHART STATUS PR -->
                     <div class="dash-donut-card">
@@ -614,7 +626,6 @@
                                         <div class="dash-top-item-rank">{{ idx + 1 }}</div>
                                         <div class="dash-top-item-info">
                                             <div class="dash-top-item-name">{{ it.item_name }}</div>
-                                            <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.count / topItemsByPOCount[0].count * 100) + '%' }"></div></div>
                                         </div>
                                         <div class="dash-top-item-count">{{ it.count }}x</div>
                                     </div>
@@ -631,7 +642,6 @@
                                         <div class="dash-top-item-rank">{{ idx + 1 }}</div>
                                         <div class="dash-top-item-info">
                                             <div class="dash-top-item-name">{{ it.item_name }}</div>
-                                            <div class="dash-top-item-bar-wrap"><div class="dash-top-item-bar" :style="{ width: (it.qty / topItemsByQtyCount[0].qty * 100) + '%' }"></div></div>
                                         </div>
                                         <div class="dash-top-item-count">{{ it.qty }}</div>
                                     </div>

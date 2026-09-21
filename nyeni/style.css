@@ -103,6 +103,12 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 /* ============================================================
    DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
    ============================================================ */
+/* Baris judul "Dashboard Overview" + filter Branch (multiselect) & range tanggal, sejajar
+   di kanan judul. Filter ini CUMA mempengaruhi donut chart & 2 list Top Items -- notifikasi
+   sengaja gak ke-filter (lihat komputed dashFilteredPRs/dashFilteredPOs di app.js). */
+.dash-header-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+.dash-header-row h2{ margin-bottom:0; }
+.dash-header-filters{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .dash-donut-card{
     display:flex; align-items:center; gap:32px; flex-wrap:wrap; padding:28px;
     background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius);
@@ -146,16 +152,16 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dash-notif-pr{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:13.5px; }
 .dash-notif-branch{ font-size:12.5px; color:var(--muted); font-weight:500; margin-top:2px; }
 
-/* "Stickyroll" -- Yoyo / Ping-Pong auto-scroll. Kalo isi list-nya lebih dari 5, daripada bikin
-   card-nya makin manjang ke bawah terus, list-nya dikunci tingginya (kira-kira setinggi 5
-   baris) dan di-auto-scroll pelan lewat direktif v-stickyroll di app.js -- turun sampe abis,
-   terus balik arah naik sampe balik ke atas lagi, gitu terus bolak-balik (BUKAN loop
-   satu-arah tanpa akhir, jadi kontennya CUKUP 1 salinan, gak perlu di-duplikat). Container-nya
-   overflow-y:auto ASLI (native scroll browser) -- auto-scroll cuma gerakin scrollTop-nya
-   bolak-balik antara paling atas & paling bawah, jadi gak akan pernah nyangkut. Manual scroll
-   tetep bisa lewat wheel/trackpad/scrollbar/swipe biasa (BUKAN drag custom) -- auto-scroll
-   otomatis pause pas lagi di-hover/disentuh. Kalo <= 5 item, class stickyroll-active gak
-   kepasang -- list-nya statis biasa, gak jalan. */
+/* "Stickyroll" -- kalo isi list-nya lebih dari 5, daripada bikin card-nya makin manjang ke
+   bawah terus, list-nya dikunci tingginya (persis 5 baris) lewat direktif v-stickyroll di
+   app.js. Container-nya overflow-y:auto ASLI (native scroll browser) -- scroll-nya 100% manual
+   (wheel/trackpad/scrollbar/swipe), TIDAK ADA auto-scroll/animasi apapun. Kalo <= 5 item, class
+   stickyroll-active gak kepasang -- list-nya statis biasa, gak bisa/perlu di-scroll.
+   Fade atas & bawah (::before/::after) NGIKUTIN posisi scroll beneran (class .at-top/.at-bottom
+   ke-toggle sama JS pas scroll) -- fade bawah cuma nongol kalo MASIH ada konten di bawah yang
+   belum keliatan, fade atas cuma nongol kalo udah di-scroll turun dikit. Begitu udah mentok di
+   salah satu ujung, fade di ujung itu ilang -- gak lagi nutupin baris terakhir/pertama yang
+   padahal udah keliatan penuh. */
 .stickyroll-wrap{ position:relative; overflow:hidden; }
 .stickyroll-wrap.stickyroll-active{
     max-height:280px; overflow-y:auto; overflow-x:hidden;
@@ -164,10 +170,18 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar{ width:5px; }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-track{ background:transparent; }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-thumb{ background:#d7deea; border-radius:3px; }
+.stickyroll-wrap.stickyroll-active::before{
+    content:''; position:absolute; left:0; right:6px; top:0; height:20px; pointer-events:none;
+    background:linear-gradient(to bottom, var(--surface-1), rgba(255,255,255,0));
+    opacity:1; transition:opacity .15s ease;
+}
 .stickyroll-wrap.stickyroll-active::after{
     content:''; position:absolute; left:0; right:6px; bottom:0; height:26px; pointer-events:none;
     background:linear-gradient(to bottom, rgba(255,255,255,0), var(--surface-1));
+    opacity:1; transition:opacity .15s ease;
 }
+.stickyroll-wrap.stickyroll-active.at-top::before{ opacity:0; }
+.stickyroll-wrap.stickyroll-active.at-bottom::after{ opacity:0; }
 
 /* Dua card "Top Item" ditaro sejajar (berdampingan), numpuk jadi 1 kolom kalo layar sempit. */
 .dash-top-items-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
@@ -180,9 +194,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
 .dash-top-item-info{ flex:1 1 auto; min-width:0; }
-.dash-top-item-name{ font-size:13.5px; font-weight:600; color:var(--ink); margin-bottom:6px; }
-.dash-top-item-bar-wrap{ height:7px; border-radius:5px; background:var(--surface-0); overflow:hidden; }
-.dash-top-item-bar{ height:100%; border-radius:5px; background:linear-gradient(90deg, #3d61e9, #2945c9); }
+.dash-top-item-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
 .dash-top-item-count{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--ink); font-size:13.5px; flex-shrink:0; }
 
 .produk-toolbar{
@@ -197,10 +209,25 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .search-box input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight: 500;}
 
 /* Dropdown "Select Target Column" + search box digabung jadi satu pill nyambung
-   (dropdown milih kolom yang mau di-search, search box-nya buat ketik query-nya) */
+   (dropdown milih kolom yang mau di-search, search box-nya buat ketik query-nya).
+   Rule radius-nya di-scope ke :first-child doang -- soalnya sekarang box "Select Branch"
+   JUGA makein class .ss-control yang sama (biar tampilannya identik sama dropdown lain),
+   jadi kalo gak di-scope, sudut kanan box Branch ikut ke-strip padahal dia elemen paling
+   kanan di pill-nya dan sudut kanannya harus tetep bulet. */
 .search-combo{ display:flex; align-items:stretch; flex-wrap:wrap; }
-.search-combo .ss-control{ border-top-right-radius:0; border-bottom-right-radius:0; }
+.search-combo > :first-child .ss-control{ border-top-right-radius:0; border-bottom-right-radius:0; }
 .search-combo .search-box{
+    border-top-left-radius:0; border-bottom-left-radius:0; background:#f8faff;
+    border:1px solid #dce4f0; border-left:1px solid var(--border);
+}
+/* Kalo kolom yang dipilih di "Select Target Column" itu "Branch", search box-nya diganti jadi
+   multi-select Branch -- disambungin jadi 1 pill yang sama kayak search box biasa (border kiri
+   dilepas, sudut kiri gak dibulet-in) biar nempel langsung ke dropdown "Branch" di sampingnya.
+   Box-nya sendiri (.ss-control) sekarang class-nya PERSIS sama kayak dropdown lain (Request
+   Number, Status, dst) -- cuma ditambahin override buat nyambungin ke pill di sini. */
+.search-combo-branch{ display:flex; align-items:stretch; flex:1 1 auto; min-width:180px; }
+.search-combo-branch .ss-wrap{ flex:1 1 auto; }
+.search-combo-branch .ss-control{
     border-top-left-radius:0; border-bottom-left-radius:0; background:#f8faff;
     border:1px solid #dce4f0; border-left:1px solid var(--border);
 }
@@ -289,6 +316,29 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-option:hover{ background:var(--primary-soft); color:var(--primary); }
 .ss-option.selected{ background:var(--primary-soft); color:var(--primary); font-weight:600; }
 .ss-empty{ padding:16px; text-align:center; color:var(--muted); font-size:12.5px; }
+
+/* Dropdown multiselect (checkbox) -- dipake buat filter Branch di Daftar PR/PO & Dashboard.
+   Beda sama SearchableSelect (cuma bisa milih 1), sini bisa milih BANYAK opsi sekaligus.
+   Box utama, panel, search box internal, dsb SEKARANG REUSE class ss-wrap/ss-control/ss-panel/
+   ss-search/ss-options/ss-empty yang sama persis kayak SearchableSelect (lihat MultiSelectDropdown
+   di app.js) -- biar tampilannya IDENTIK sama dropdown lain (Request Number, Status, dst), gak
+   ada class/style yang beda-beda lagi. Box utamanya nampilin ringkasan teks 1 baris doang
+   (summaryLabel di app.js: placeholder / nama cabang / "N dipilih"), BUKAN chip satu-satu --
+   makanya box-nya gak pernah melar walau kepilih banyak cabang. Yang masih spesifik punya
+   multiselect cuma checkbox list di dalem panel-nya (.ms-option/.ms-checkbox) & footer
+   Clear+Apply-nya (.ms-panel-footer/.ms-clear-btn/.ms-apply-btn) di bawah ini. */
+.ms-option{ display:flex; align-items:center; gap:10px; padding:10px 14px; font-size:13.5px; cursor:pointer; color:var(--ink); }
+.ms-option:hover{ background:#f8faff; }
+.ms-checkbox{
+    width:17px; height:17px; border-radius:5px; border:1.5px solid #c3d0e8; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px;
+    transition:background .12s ease, border-color .12s ease;
+}
+.ms-checkbox.checked{ background:var(--primary); border-color:var(--primary); }
+.ms-panel-footer{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid var(--border); background:var(--surface-0); }
+.ms-clear-btn{ background:transparent; border:none; color:var(--muted); font-size:12.5px; font-weight:600; cursor:pointer; padding:6px 4px; }
+.ms-clear-btn:hover{ color:var(--danger); }
+.ms-apply-btn{ padding:8px 18px; font-size:12.5px; }
 
 /* Animasi buka/tutup dropdown -- gaya popover macOS: scale 95% -> 100% + fade,
    titik poros (transform-origin) di atas biar keliatan "membesar" dari tombol
