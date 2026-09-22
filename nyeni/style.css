@@ -15,10 +15,6 @@ button, input, select, textarea{ transition:box-shadow .2s ease, transform .2s e
 button:focus-visible, input:focus-visible, select:focus-visible{ outline:3px solid rgba(52,85,219,.26); outline-offset:2px; }
 h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5px; }
 
-/* Form & Buttons */
-/* z-index dihapus dari sini (dulu ada .field{z-index:1}) -- itu bikin tiap .field jadi
-   "kotak" stacking context sendiri, jadi panel dropdown searchable-select yang meluber ke luar
-   .field-nya malah ketimpa sama .field lain yang urutannya lebih belakang di DOM. */
 .field{ margin-bottom:18px; position:relative; }
 .field label{ color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display: block; font-weight: 600;}
 .field input, .field select, .field textarea, select{
@@ -41,14 +37,12 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 }
 .btn-danger-solid:hover{ background:#b6334a; }
 
-/* Bar yang muncul di atas tabel Master Data pas ada row yang lagi dipilih (bulk select) */
 .bulk-bar{
     display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px;
     background:var(--primary-soft); border:1px solid #c7d1fb; border-radius:12px; margin-bottom:12px;
     font-size:13px; font-weight:600; color:var(--primary-deep);
 }
 
-/* Login Screen */
 #loginScreen{
     min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -66,7 +60,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .login-error{ background:var(--danger-soft); color:var(--danger); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 .login-notice{ background:var(--warn-soft); color:var(--warn); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 
-/* Main App Layout */
 .d-flex-layout { display: flex; min-height: 100vh; }
 .sidebar {
     width: 260px; background: var(--surface-1); border-right: 1px solid var(--border); padding: 20px 15px; position: fixed; height: 100vh; z-index: 100;
@@ -88,7 +81,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .sidebar-menu li a:hover, .sidebar-menu li a.active { background: var(--primary-soft); color: var(--primary); }
 .main-content { margin-left: 260px; width: calc(100% - 260px); padding: 40px clamp(20px, 4vw, 50px); }
 
-/* Dashboard & Components */
 .dc-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:18px; margin-bottom: 30px;}
 .dc-card{
     position:relative; overflow:hidden; padding:24px; border-radius:20px; border: 1px solid var(--border);
@@ -100,12 +92,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dc-card .name{ font-family:'Space Grotesk',sans-serif; font-size:16px; color: var(--ink); margin: 0;}
 .dc-card .qty{ font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700; color: var(--ink); line-height: 1;}
 
-/* ============================================================
-   DASHBOARD -- donut chart status PR, notifikasi PR hampir Expired, & top item by count of PO.
-   ============================================================ */
-/* Baris judul "Dashboard Overview" + filter Branch (multiselect) & range tanggal, sejajar
-   di kanan judul. Filter ini CUMA mempengaruhi donut chart & 2 list Top Items -- notifikasi
-   sengaja gak ke-filter (lihat komputed dashFilteredPRs/dashFilteredPOs di app.js). */
 .dash-header-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
 .dash-header-row h2{ margin-bottom:0; }
 .dash-header-filters{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -152,16 +138,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .dash-notif-pr{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:13.5px; }
 .dash-notif-branch{ font-size:12.5px; color:var(--muted); font-weight:500; margin-top:2px; }
 
-/* "Stickyroll" -- kalo isi list-nya lebih dari 5, daripada bikin card-nya makin manjang ke
-   bawah terus, list-nya dikunci tingginya (persis 5 baris) lewat direktif v-stickyroll di
-   app.js. Container-nya overflow-y:auto ASLI (native scroll browser) -- scroll-nya 100% manual
-   (wheel/trackpad/scrollbar/swipe), TIDAK ADA auto-scroll/animasi apapun. Kalo <= 5 item, class
-   stickyroll-active gak kepasang -- list-nya statis biasa, gak bisa/perlu di-scroll.
-   Fade atas/bawah (::before/::after) yang dulu ada DIHAPUS TOTAL -- gimanapun tipisnya, tetep
-   nutupin dikit baris paling atas/bawah begitu discroll (row list-nya sendiri pendek), jadi
-   baris itu keliatan beda/pudar dibanding baris lain. Sekarang penanda "masih ada konten di
-   atas/bawah" cuma scrollbar tipis (::-webkit-scrollbar-thumb di bawah) -- semua baris,
-   termasuk yang lagi di paling atas/bawah pas discroll, tampil SAMA PERSIS kayak baris lain. */
 .stickyroll-wrap{ position:relative; overflow:hidden; }
 .stickyroll-wrap.stickyroll-active{
     max-height:280px; overflow-y:auto; overflow-x:hidden;
@@ -171,7 +147,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-track{ background:transparent; }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar-thumb{ background:#d7deea; border-radius:3px; }
 
-/* Dua card "Top Item" ditaro sejajar (berdampingan), numpuk jadi 1 kolom kalo layar sempit. */
 .dash-top-items-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
 @media (max-width: 760px){ .dash-top-items-grid{ grid-template-columns:1fr; } }
 
@@ -189,19 +164,12 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px;
     padding:16px 20px; border:1px solid var(--border); border-radius:18px; background:rgba(255,255,255,.84); box-shadow:0 5px 18px rgba(32,50,103,.04);
 }
-/* Grup dropdown filter + search box di sisi kiri toolbar -- ini kepake di HTML tapi
-   kemarin belom ke-define di CSS sama sekali, jadinya numpuk vertikal bukan sejajar */
+
 .produk-toolbar-search{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1 1 auto; }
 .search-box{ min-width:350px; padding:10px 14px; border-radius:11px; background:#eef2f9; display: flex; align-items: center; gap: 8px; }
 .search-box i{ color:var(--primary); font-size: 16px;}
 .search-box input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight: 500;}
 
-/* Dropdown "Select Target Column" + search box digabung jadi satu pill nyambung
-   (dropdown milih kolom yang mau di-search, search box-nya buat ketik query-nya).
-   Rule radius-nya di-scope ke :first-child doang -- soalnya sekarang box "Select Branch"
-   JUGA makein class .ss-control yang sama (biar tampilannya identik sama dropdown lain),
-   jadi kalo gak di-scope, sudut kanan box Branch ikut ke-strip padahal dia elemen paling
-   kanan di pill-nya dan sudut kanannya harus tetep bulet. */
 .search-combo{ display:flex; align-items:stretch; flex-wrap:wrap; }
 .search-combo > :first-child .ss-control{ border-top-right-radius:0; border-bottom-right-radius:0; }
 .search-combo .search-box{
@@ -209,13 +177,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     border:1px solid #dce4f0; border-left:1px solid var(--border);
     flex:1 1 auto;
 }
-/* Kalo kolom yang dipilih di "Select Target Column" itu "Branch", search box-nya diganti jadi
-   multi-select Branch -- disambungin jadi 1 pill yang sama kayak search box biasa (border kiri
-   dilepas, sudut kiri gak dibulet-in) biar nempel langsung ke dropdown "Branch" di sampingnya.
-   Box-nya sendiri (.ss-control) sekarang class-nya PERSIS sama kayak dropdown lain (Request
-   Number, Status, dst) -- cuma ditambahin override buat nyambungin ke pill di sini.
-   min-width DISAMAIN persis sama .search-box (220px) -- sebelumnya cuma 180px, jadi pill-nya
-   keliatan lebih pendek dibanding pas field yang dipilih "Request Number" dkk. */
+
 .search-combo-branch{ display:flex; align-items:stretch; flex:1 1 auto; min-width:350px; }
 .search-combo-branch .ss-wrap{ flex:1 1 auto; }
 .search-combo-branch .ss-control{
@@ -223,8 +185,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     border:1px solid #dce4f0; border-left:1px solid var(--border);
 }
 
-/* Filter range tanggal (dipake di toolbar Daftar PR & Daftar PO, biasanya ditaro di pojok kanan).
-   Input-nya readonly & di-trigger sama flatpickr (lihat komponen DateRangeFilter di app.js). */
 .date-range-filter{
     display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:11px;
     background:#eef2f9; font-size:13px; font-weight:500; color:var(--muted); white-space:nowrap;
@@ -238,10 +198,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .drf-clear{ background:transparent; border:none; color:var(--muted); cursor:pointer; padding:0; display:flex; align-items:center; font-size:15px; flex-shrink:0; }
 .drf-clear:hover{ color:var(--danger); }
 
-/* Flatpickr -- selarasin sama font & warna aksen app. Lebar kalendernya SENGAJA
-   gak di-fix di sini -- itu di-set dinamis lewat JS (lihat syncFlatpickrWidth di
-   app.js) biar persis sama lebar box pemicunya (date-range-filter / date-picker-field)
-   dan nempel pas di bawahnya, bukan lebar fix yang belom tentu cocok di semua box. */
 .flatpickr-calendar{ font-family:'Inter', sans-serif; font-size:12.5px; box-shadow:var(--shadow); border-radius:14px; }
 .flatpickr-day{ height:30px; line-height:30px; font-size:12px; }
 .flatpickr-months{ padding-top:4px; }
@@ -269,18 +225,13 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* Tabel yang bisa di-scroll vertikal, header-nya nempel (sticky) pas discroll */
 .table-scroll{ max-height: 460px; overflow-y: auto; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }
 
-/* Header kolom tabel yang bisa diklik buat sort (Daftar PR & Daftar PO) */
 .sortable-th{ cursor:pointer; user-select:none; white-space:nowrap; transition:color .15s ease; }
 .sortable-th:hover{ color:var(--primary); }
 .sortable-th i{ margin-left:5px; font-size:10px; vertical-align:1px; }
 
-/* Dropdown custom (SearchableSelect) -- pengganti <select> biasa. Searchbar internal (.ss-search)
-   sekarang OPSIONAL lewat prop :searchable="true" -- cuma dropdown Branch & Barang/Product yang
-   makein (opsinya bisa banyak), dropdown lain (Status, Shipping, PIC, dst) polos tanpa searchbar. */
 .ss-wrap{ position:relative; }
 .ss-control{
     width:100%; border:1px solid #dce4f0; background:#f8faff; border-radius:11px; padding:12px 13px;
@@ -290,9 +241,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-control:hover{ border-color:#c3d0e8; }
 .ss-control.open{ border-color:var(--primary); box-shadow:0 0 0 4px rgba(52,85,219,.11); background:#fff; }
 .ss-control i{ color:var(--muted); font-size:13px; flex-shrink:0; }
-/* Teks yang dipilih dipaksa 1 baris (dipotong "..." kalo kepanjangan) daripada wrap ke baris ke-2
-   -- box-nya 2 baris bikin tinggi tiap dropdown beda-beda & chevron-nya jadi ketengah aneh.
-   min-width:0 WAJIB di sini biar text-overflow:ellipsis-nya kepake di dalem flex container. */
+
 .ss-control > span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .ss-placeholder{ color:#93a0b8; }
 .ss-panel{
@@ -308,16 +257,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-option.selected{ background:var(--primary-soft); color:var(--primary); font-weight:600; }
 .ss-empty{ padding:16px; text-align:center; color:var(--muted); font-size:12.5px; }
 
-/* Dropdown multiselect (checkbox) -- dipake buat filter Branch di Daftar PR/PO & Dashboard.
-   Beda sama SearchableSelect (cuma bisa milih 1), sini bisa milih BANYAK opsi sekaligus.
-   Box utama, panel, search box internal, dsb SEKARANG REUSE class ss-wrap/ss-control/ss-panel/
-   ss-search/ss-options/ss-empty yang sama persis kayak SearchableSelect (lihat MultiSelectDropdown
-   di app.js) -- biar tampilannya IDENTIK sama dropdown lain (Request Number, Status, dst), gak
-   ada class/style yang beda-beda lagi. Box utamanya nampilin ringkasan teks 1 baris doang
-   (summaryLabel di app.js: placeholder / nama cabang / "N dipilih"), BUKAN chip satu-satu --
-   makanya box-nya gak pernah melar walau kepilih banyak cabang. Yang masih spesifik punya
-   multiselect cuma checkbox list di dalem panel-nya (.ms-option/.ms-checkbox) & footer
-   Clear+Apply-nya (.ms-panel-footer/.ms-clear-btn/.ms-apply-btn) di bawah ini. */
 .ms-option{ display:flex; align-items:center; gap:10px; padding:10px 14px; font-size:13.5px; cursor:pointer; color:var(--ink); }
 .ms-option:hover{ background:#f8faff; }
 .ms-checkbox{
@@ -331,10 +270,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ms-clear-btn:hover{ color:var(--danger); }
 .ms-apply-btn{ padding:8px 18px; font-size:12.5px; }
 
-/* Animasi buka/tutup dropdown -- gaya popover macOS: scale 95% -> 100% + fade,
-   titik poros (transform-origin) di atas biar keliatan "membesar" dari tombol
-   pemicunya (yang nempel pas di atas panel ini). Dipake di semua dropdown yang
-   pake komponen SearchableSelect (Status, Branch, Kategori, Barang, Search Field). */
 .pop-enter-active, .pop-leave-active{
     transition: opacity .16s cubic-bezier(.2,.9,.3,1), transform .16s cubic-bezier(.2,.9,.3,1);
     transform-origin: top center;
@@ -342,12 +277,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pop-enter-from, .pop-leave-to{ opacity:0; transform: scale(.95); }
 .pop-enter-to, .pop-leave-from{ opacity:1; transform: scale(1); }
 
-/* ============================================================
-   TOAST NOTIFIKASI -- ganti alert() bawaan browser (yang blocking & jelek).
-   Muncul nempel kanan-bawah layar, numpuk ke atas kalo lebih dari 1, ilang
-   sendiri abis beberapa detik (bisa ditutup manual juga pake tombol x).
-   Warna kiri + ikon beda-beda sesuai tipe (success/error/warn/info).
-   ============================================================ */
 .toast-stack{
     position:fixed; bottom:24px; right:24px; z-index:1000; display:flex; flex-direction:column;
     gap:10px; width:min(360px, calc(100vw - 32px)); pointer-events:none;
@@ -373,11 +302,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .toast-enter-from, .toast-leave-to{ opacity:0; transform: translateX(30px); }
 .toast-move{ transition: transform .22s ease; }
 
-/* ============================================================
-   CONFIRM MODAL -- ganti confirm() bawaan browser. Overlay gelap di tengah
-   layar + card kecil, tombol Batal (ghost) & konfirmasi (merah kalo aksi
-   ngerusak/hapus, biru kalo aksi biasa kayak Approve).
-   ============================================================ */
 .confirm-backdrop{
     position:fixed; inset:0; background:rgba(23,33,58,.45); z-index:1001; display:flex;
     align-items:center; justify-content:center; padding:20px;
@@ -394,41 +318,25 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .modal-pop-enter-active .confirm-card, .modal-pop-leave-active .confirm-card{ transition: transform .18s ease; }
 .modal-pop-enter-from .confirm-card, .modal-pop-leave-to .confirm-card{ transform: scale(.95); }
 
-/* ============================================================
-   PURCHASE REQUEST -- form Buat PR & layar Detail/Edit PR.
-   Container-nya dibikin murni CSS grid sendiri (bukan .row/.col-md-* Bootstrap),
-   soalnya grid Bootstrap punya negative margin yang ketutupan/kepotong sama
-   border-radius + overflow parent card-nya (itu penyebab "card-nya separuh").
-   ============================================================ */
 .pr-form-card{
     background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:30px; overflow:visible;
-    /* Dulu max-width:900px -- di layar lebar itu nyisain ruang kosong gede di kanan,
-       keliatan kayak card-nya "kepotong separuh". Sekarang ngikutin lebar konten aja,
-       sama kayak .produk-table-wrap yang lain. */
+
 }
-/* Ganti dari CSS Grid (semua kolom lebarnya kepaksa sama rata) ke flexbox -- biar Branch
-   Name/Required Date/Shipping Category bisa punya lebar beda-beda sendiri TAPI tetep bisa
-   sejajar di baris yang sama, dan tetep wrap ke baris baru pas layar sempit / field kepanjangan. */
+
 .pr-form-grid{ display:flex; flex-wrap:wrap; gap:4px 24px; }
-/* Required Date & PIC -- lebar tetep (gak ikut) growing), biar gak ke-geser2 pas Branch Name
-   ngambil sisa ruang di baris. */
+
 .pr-form-grid .field{ flex:0 0 260px; }
-/* Branch Name -- flex-grow:1 biar NGAMBIL SEMUA sisa ruang kosong di baris yang sama (bukan cuma
-   dilebarin dikit kayak sebelumnya), jadi nama cabang panjang tetep muat 1 baris tanpa turun
-   ke baris ke-2, dan ruang kosong di kanan (Required Date/Shipping Category) kepake. */
+
 .pr-form-grid .field.field-branch-wide{ flex:1 1 300px; max-width:none; }
-/* Shipping Category -- daripada ikut melar kayak field lain, box-nya dibikin pas ngikutin
-   lebar opsi paling panjang ("Indirect (Vendor)") aja, gak nyita jatah baris yang lain. */
+
 .pr-form-grid .field.field-fit-content{ flex:0 0 230px; }
 .field-fit-content .ss-wrap{ width:230px; }
 .pr-item-adder{ display:flex; gap:12px; align-items:center; margin-bottom:16px; }
 .pr-item-adder .field{ flex:1 1 auto; }
 .pr-item-adder .field.qty-field{ flex:0 0 110px; }
 .pr-item-adder > button{ flex-shrink:0; white-space:nowrap; align-self:flex-start; margin-top:0; height:47px; }
-/* overflow:hidden DIHAPUS -- itu nge-clip panel dropdown searchable-select pas
-   salah satu barisnya lagi di-edit (sama kasusnya kayak bug .field z-index dulu).
-   Sudut membulat tetep dijaga manual di baris pertama/terakhir di bawah. */
+
 .pr-item-list{ border:1px solid var(--border); border-radius:12px; margin-bottom:20px; background:#fff; }
 .pr-item-list > div:first-child{ border-top-left-radius:11px; border-top-right-radius:11px; }
 .pr-item-list > div:last-child{ border-bottom-left-radius:11px; border-bottom-right-radius:11px; }
@@ -436,16 +344,11 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-item-row:last-child{ border-bottom:none; }
 .pr-item-row .item-name{ font-weight:600; color:var(--ink); }
 .pr-item-row .item-qty{ color:var(--muted); font-size:12.5px; margin-left:8px; font-weight:600; }
-/* Item yang lagi di-edit-in-place (ganti barang/qty) di list Buat PR */
+
 .pr-item-row-edit{ justify-content:flex-start; gap:10px; background:#f8faff; }
 
-/* Date picker satu tanggal (dipake di field "Required Date" pas Buat PR) --
-   tampilannya diselarasin sama date-range-filter di Daftar PR, tapi ngikutin
-   ukuran/proporsi .field input biasa biar nyatu sama field lain di form. */
 .date-picker-field{
-    /* max-width DIKUNCI biar sama kayak lebar box .date-range-filter di Daftar PR -- kalendernya
-       (flatpickr) lebarnya di-sync ke lebar box pemicu ini lewat syncFlatpickrWidth() di app.js,
-       jadi kalo box-nya beda lebar, kalendernya ikut beda ukuran/kecembungan sel tanggalnya. */
+
     display:flex; align-items:center; gap:8px; width:100%; max-width:220px; border:1px solid #dce4f0; background:#f8faff;
     border-radius:11px; padding:12px 13px; cursor:pointer;
 }
@@ -460,7 +363,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-detail-label{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:700; margin-bottom:5px; }
 .pr-detail-value{ font-size:14.5px; font-weight:600; color:var(--ink); }
 
-/* Box "Information" di Detail PR/PO -- kapan dibuat/diedit & sama siapa. */
 .pr-info-box{
     background:var(--surface-0); border:1px solid var(--border); border-radius:14px;
     padding:14px 16px; margin-bottom:24px;
@@ -474,7 +376,6 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .pr-info-row span:first-child{ color:var(--muted); font-weight:600; flex-shrink:0; }
 .pr-info-row span:last-child{ color:var(--ink); font-weight:500; text-align:right; }
 
-/* Kartu pilihan Brand di layar sebelum login */
 .brand-choice{
     display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border);
     border-radius:14px; margin-bottom:12px; cursor:pointer; background:#fff; transition:.2s;

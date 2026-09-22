@@ -78,7 +78,7 @@ const SearchableSelect = {
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
             </div>
             <Transition name="pop">
-                <div v-if="isOpen" class="ss-panel">
+                <div v-if="isOpen" class="ss-panel" :style="panelStyle">
                     <div v-if="searchable" class="ss-search" @click.stop>
                         <i class="bi bi-search"></i>
                         <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
@@ -99,6 +99,7 @@ const SearchableSelect = {
         const searchQuery = ref('');
         const wrapEl = ref(null);
         const searchInput = ref(null);
+        const panelStyle = ref({});
 
         const selectedLabel = computed(() => {
             const found = props.options.find(o => o.value === props.modelValue);
@@ -111,12 +112,26 @@ const SearchableSelect = {
             return props.options.filter(o => String(o.label).toLowerCase().includes(q));
         });
 
+        const updatePanelPosition = () => {
+            if (!wrapEl.value) return;
+            const rect = wrapEl.value.getBoundingClientRect();
+            panelStyle.value = {
+                position: 'fixed',
+                top: (rect.bottom + 6) + 'px',
+                left: rect.left + 'px',
+                width: rect.width + 'px'
+            };
+        };
+
         const closeDropdown = () => { isOpen.value = false; };
         const toggleOpen = () => {
             isOpen.value = !isOpen.value;
-            if (isOpen.value && props.searchable) {
-                searchQuery.value = '';
-                nextTick(() => searchInput.value && searchInput.value.focus());
+            if (isOpen.value) {
+                updatePanelPosition();
+                if (props.searchable) {
+                    searchQuery.value = '';
+                    nextTick(() => searchInput.value && searchInput.value.focus({ preventScroll: true }));
+                }
             }
         };
         const selectOption = (opt) => {
@@ -127,10 +142,23 @@ const SearchableSelect = {
         const handleClickOutside = (e) => {
             if (wrapEl.value && !wrapEl.value.contains(e.target)) closeDropdown();
         };
-        onMounted(() => document.addEventListener('click', handleClickOutside));
-        onUnmounted(() => document.removeEventListener('click', handleClickOutside));
+        const handleScrollOrResize = (e) => {
+            if (!isOpen.value) return;
+            if (e && e.target && wrapEl.value && wrapEl.value.contains(e.target)) return;
+            closeDropdown();
+        };
+        onMounted(() => {
+            document.addEventListener('click', handleClickOutside);
+            window.addEventListener('scroll', handleScrollOrResize, true);
+            window.addEventListener('resize', handleScrollOrResize);
+        });
+        onUnmounted(() => {
+            document.removeEventListener('click', handleClickOutside);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        });
 
-        return { isOpen, searchQuery, wrapEl, searchInput, selectedLabel, filteredOptions, toggleOpen, closeDropdown, selectOption };
+        return { isOpen, searchQuery, wrapEl, searchInput, panelStyle, selectedLabel, filteredOptions, toggleOpen, closeDropdown, selectOption };
     }
 };
 
@@ -149,7 +177,7 @@ const MultiSelectDropdown = {
                 <i class="bi" :class="isOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
             </div>
             <Transition name="pop">
-                <div v-if="isOpen" class="ss-panel" @click.stop>
+                <div v-if="isOpen" class="ss-panel" :style="panelStyle" @click.stop>
                     <div class="ss-search" @click.stop>
                         <i class="bi bi-search"></i>
                         <input type="text" v-model="searchQuery" placeholder="Cari..." ref="searchInput">
@@ -175,6 +203,7 @@ const MultiSelectDropdown = {
         const wrapEl = ref(null);
         const searchInput = ref(null);
         const pending = ref([...props.modelValue]);
+        const panelStyle = ref({});
 
         const labelFor = (v) => {
             const found = props.options.find(o => o.value === v);
@@ -193,13 +222,25 @@ const MultiSelectDropdown = {
             return props.options.filter(o => String(o.label).toLowerCase().includes(q));
         });
 
+        const updatePanelPosition = () => {
+            if (!wrapEl.value) return;
+            const rect = wrapEl.value.getBoundingClientRect();
+            panelStyle.value = {
+                position: 'fixed',
+                top: (rect.bottom + 6) + 'px',
+                left: rect.left + 'px',
+                width: rect.width + 'px'
+            };
+        };
+
         const closeDropdown = () => { isOpen.value = false; };
         const toggleOpen = () => {
             isOpen.value = !isOpen.value;
             if (isOpen.value) {
+                updatePanelPosition();
                 pending.value = [...props.modelValue];
                 searchQuery.value = '';
-                nextTick(() => searchInput.value && searchInput.value.focus());
+                nextTick(() => searchInput.value && searchInput.value.focus({ preventScroll: true }));
             }
         };
         const togglePending = (v) => {
@@ -215,10 +256,23 @@ const MultiSelectDropdown = {
         const handleClickOutside = (e) => {
             if (wrapEl.value && !wrapEl.value.contains(e.target)) closeDropdown();
         };
-        onMounted(() => document.addEventListener('click', handleClickOutside));
-        onUnmounted(() => document.removeEventListener('click', handleClickOutside));
+        const handleScrollOrResize = (e) => {
+            if (!isOpen.value) return;
+            if (e && e.target && wrapEl.value && wrapEl.value.contains(e.target)) return;
+            closeDropdown();
+        };
+        onMounted(() => {
+            document.addEventListener('click', handleClickOutside);
+            window.addEventListener('scroll', handleScrollOrResize, true);
+            window.addEventListener('resize', handleScrollOrResize);
+        });
+        onUnmounted(() => {
+            document.removeEventListener('click', handleClickOutside);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        });
 
-        return { isOpen, searchQuery, wrapEl, searchInput, pending, summaryLabel, filteredOptions, toggleOpen, closeDropdown, togglePending, clearPending, applyPending };
+        return { isOpen, searchQuery, wrapEl, searchInput, pending, panelStyle, summaryLabel, filteredOptions, toggleOpen, closeDropdown, togglePending, clearPending, applyPending };
     }
 };
 
