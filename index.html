@@ -193,6 +193,10 @@
                             <div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-person-badge" style="color: var(--success);"></i></div>
                             <h3 class="name">Master PIC</h3>
                         </div>
+                        <div class="dc-card" @click="currentTab = 'master-user'">
+                            <div class="dc-icon" style="background: var(--primary-soft);"><i class="bi bi-person-plus-fill" style="color: var(--primary);"></i></div>
+                            <h3 class="name">Master User</h3>
+                        </div>
                     </div>
                 </div>
 
@@ -429,6 +433,37 @@
                                         <tr v-if="filteredPics.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada PIC yang cocok.</td></tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-user'" key="master-user">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - User</h2>
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">Buat Akun Baru</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Username</label>
+                                    <input type="text" v-model="newUserForm.username" placeholder="Contoh : areamanager2">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Password</label>
+                                    <input type="text" v-model="newUserForm.password" placeholder="Minimal 6 karakter">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Role</label>
+                                    <searchable-select v-model="newUserForm.role" :options="ROLE_SELECT_OPTIONS" placeholder="-- Pilih Role --"></searchable-select>
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;" v-if="newUserForm.role && newUserForm.role !== 'Master'">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="newUserForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="-- Pilih Brand --"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="createNewUser" :disabled="isCreatingUser">
+                                    <i class="bi bi-person-plus me-1"></i> {{ isCreatingUser ? 'Membuat...' : 'Buat Akun' }}
+                                </button>
                             </div>
                         </div>
                     </div>

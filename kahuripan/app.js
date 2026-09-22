@@ -36,6 +36,8 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { storage: window.sessionStorage }
 });
 
+const CREATE_USER_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/create-user`;
+
 async function generateNumber(prefix) {
     const { data, error } = await supabaseClient.rpc('generate_doc_number', { p_prefix: prefix });
     if (error) throw error;
@@ -446,6 +448,12 @@ const PIC_SHIPPING_SELECT_OPTIONS = [
 const BRAND_SELECT_OPTIONS = [
     { value: 'Kebuli Abuya', label: 'Kebuli Abuya' },
     { value: 'Almaz Fried Chicken', label: 'Almaz Fried Chicken' }
+];
+
+const ROLE_SELECT_OPTIONS = [
+    { value: 'SM', label: 'SM (Store Manager)' },
+    { value: 'AM', label: 'AM (Area Manager)' },
+    { value: 'Master', label: 'Master Layer' }
 ];
 
 const PR_SEARCH_FIELDS = [
@@ -868,6 +876,9 @@ const app = createApp({
         const editPicForm = ref({ pic_name: '', shipping: '', brand: '' });
         const selectedPicIds = ref([]);
         const addPicForm = ref({ pic_name: '', shipping: '', brand: '' });
+
+        const newUserForm = ref({ username: '', password: '', role: '', brand: '' });
+        const isCreatingUser = ref(false);
 
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
@@ -1367,6 +1378,57 @@ const app = createApp({
             fetchData();
         };
 
+        const createNewUser = async () => {
+            const username = newUserForm.value.username.trim();
+            const password = newUserForm.value.password;
+            const role = newUserForm.value.role;
+            const brand = newUserForm.value.brand;
+
+            if (!username) { toast('Username gak boleh kosong.', 'warn'); return; }
+            if (!password || password.length < 6) { toast('Password minimal 6 karakter.', 'warn'); return; }
+            if (!role) { toast('Pilih role dulu ya.', 'warn'); return; }
+            if (role !== 'Master' && !brand) { toast('Pilih brand dulu ya.', 'warn'); return; }
+
+            isCreatingUser.value = true;
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.access_token) {
+                    toast('Sesi login gak valid, coba login ulang.', 'error');
+                    return;
+                }
+
+                const res = await fetch(CREATE_USER_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        role,
+                        brand: role === 'Master' ? null : brand
+                    })
+                });
+
+                const result = await res.json();
+
+                if (!res.ok || result.error) {
+                    toast('Gagal bikin akun: ' + (result.error || 'Unknown error'), 'error');
+                    return;
+                }
+
+                newUserForm.value = { username: '', password: '', role: '', brand: '' };
+                toast(`Akun ${result.email} berhasil dibuat!`, 'success');
+            } catch (err) {
+                console.error(err);
+                toast('Gagal terhubung ke server buat bikin akun.', 'error');
+            } finally {
+                isCreatingUser.value = false;
+            }
+        };
+
         const submitPR = async () => {
             if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
             if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
@@ -1796,6 +1858,7 @@ const app = createApp({
             toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
             editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
+            newUserForm, isCreatingUser, createNewUser, ROLE_SELECT_OPTIONS,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }
