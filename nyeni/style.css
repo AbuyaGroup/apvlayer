@@ -7,7 +7,7 @@
 }
 *{ -webkit-tap-highlight-color:transparent; box-sizing: border-box; }
 body{
-    margin:0; min-height:100vh; color: var(--ink); font-family: 'Inter', system-ui, sans-serif;
+    margin:0; min-height:100vh; color: var(--ink); font-family: 'Inter', system-ui, sans-serif; overflow-x:hidden;
     background: radial-gradient(circle at 92% 4%, rgba(110,140,255,.14), transparent 24rem),
                 radial-gradient(circle at 3% 28%, rgba(28,198,170,.08), transparent 26rem), var(--surface-0);
 }
@@ -44,7 +44,25 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 }
 
 #loginScreen{
-    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+    min-height:100vh; display:flex;
+}
+.login-visual{
+    flex:0 0 70%; max-width:70%; position:relative; overflow:hidden; min-height:100vh;
+    background:linear-gradient(135deg, #3d61e9, #1d2f8f);
+    display:flex; align-items:center; justify-content:center; padding:60px;
+}
+.login-visual-shape{ position:absolute; border-radius:50%; background:rgba(255,255,255,.08); }
+.login-visual-shape.shape-1{ width:520px; height:520px; top:-160px; right:-140px; }
+.login-visual-shape.shape-2{ width:360px; height:360px; bottom:-140px; left:-90px; background:rgba(255,255,255,.06); }
+.login-visual-content{ position:relative; z-index:1; max-width:560px; color:#fff; }
+.login-visual-headline{
+    font-size:38px; line-height:1.25; font-weight:700; letter-spacing:-0.5px; margin:28px 0 14px; color:#fff;
+}
+.login-visual-sub{ font-size:16px; color:rgba(255,255,255,.78); font-weight:600; margin:0; }
+.login-brand-light span{ color:#fff; }
+.login-form-panel{
+    flex:0 0 30%; max-width:30%; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:20px; background:var(--surface-0);
 }
 .login-card{
     background:var(--surface-1); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow);
@@ -56,7 +74,15 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px;
 }
 .login-brand span{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; letter-spacing: -0.5px;}
+.login-brand-mobile{ display:none; }
 .login-card p.sub{ color:var(--muted); font-size:13.5px; margin:0 0 26px; }
+@media (max-width: 900px){
+    #loginScreen{ flex-direction:column; }
+    .login-visual{ flex:0 0 auto; max-width:100%; min-height:auto; padding:40px 28px; }
+    .login-visual-headline{ font-size:26px; margin:20px 0 10px; }
+    .login-form-panel{ flex:0 0 auto; max-width:100%; min-height:auto; padding:32px 20px; }
+    .login-brand-mobile{ display:flex; }
+}
 .login-error{ background:var(--danger-soft); color:var(--danger); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 .login-notice{ background:var(--warn-soft); color:var(--warn); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 .password-wrap{ position:relative; }
@@ -225,8 +251,15 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .status-badge.rejected{ background:var(--danger-soft); color:var(--danger); }
 .status-badge.expired{ background:#eef1f5; color:var(--muted); }
 .empty-state{ text-align:center; padding:68px 20px; border:1px dashed #ccd7e8; border-radius:18px; background:rgba(255,255,255,.6); }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.12s linear; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.screen-enter-active { transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.screen-leave-active { transition: opacity 0.4s cubic-bezier(0.4, 0, 1, 1), transform 0.4s cubic-bezier(0.4, 0, 1, 1), filter 0.4s cubic-bezier(0.4, 0, 1, 1); }
+.screen-enter-from { opacity: 0; transform: scale(1.02); }
+.screen-enter-to { opacity: 1; transform: scale(1); }
+.screen-leave-from { opacity: 1; transform: scale(1); filter: blur(0px); }
+.screen-leave-to { opacity: 0; transform: scale(0.97); filter: blur(6px); }
 
 .table-scroll{ max-height: 460px; overflow-y: auto; overscroll-behavior: contain; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }

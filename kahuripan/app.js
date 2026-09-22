@@ -621,6 +621,10 @@ const app = createApp({
             selectedBrand.value = brand;
             try { localStorage.setItem('activeBrandChoice', brand); } catch (e) {}
         };
+        const backToBrandPicker = () => {
+            selectedBrand.value = '';
+            try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
+        };
 
         const currentTab = ref('dashboard');
 
@@ -1769,7 +1773,7 @@ const app = createApp({
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
-            selectedBrand, userBrand, activeBrand, chooseBrand,
+            selectedBrand, userBrand, activeBrand, chooseBrand, backToBrandPicker,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,

@@ -54,70 +54,99 @@
         </div>
     </Transition>
 
-    <div v-if="!isLoggedIn" id="loginScreen">
-        <div class="login-card">
-            <div class="login-brand">
-                <div class="mark"><i class="bi bi-box-seam"></i></div>
-                <span>ABUYA GROUP</span>
-            </div>
-            <p class="sub">Masuk ke akun Anda</p>
-            <div v-if="sessionExpiredMessage" class="login-notice">{{ sessionExpiredMessage }}</div>
-            <form @submit.prevent="handleLogin">
-                <div class="field">
-                    <label>Username</label>
-                    <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
+    <Transition name="screen" mode="out-in">
+    <div v-if="!isLoggedIn" id="loginScreen" key="screen-login">
+        <div class="login-visual">
+            <div class="login-visual-shape shape-1"></div>
+            <div class="login-visual-shape shape-2"></div>
+            <div class="login-visual-content">
+                <div class="login-brand login-brand-light">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>MASAR</span>
                 </div>
-                <div class="field">
-                    <label>Password</label>
-                    <div class="password-wrap">
-                        <input :type="showPassword ? 'text' : 'password'" v-model="loginForm.password" required>
-                        <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'" @click="showPassword = !showPassword"></i>
+                <h1 class="login-visual-headline">Multi-branch Approval System &amp; Authorization Routing</h1>
+                <p class="login-visual-sub">by Amin Ganteng</p>
+            </div>
+        </div>
+        <div class="login-form-panel">
+            <div class="login-card">
+                <div class="login-brand login-brand-mobile">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>MASAR</span>
+                </div>
+                <p class="sub">Masuk ke akun Anda</p>
+                <div v-if="sessionExpiredMessage" class="login-notice">{{ sessionExpiredMessage }}</div>
+                <form @submit.prevent="handleLogin">
+                    <div class="field">
+                        <label>Username</label>
+                        <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
                     </div>
+                    <div class="field">
+                        <label>Password</label>
+                        <div class="password-wrap">
+                            <input :type="showPassword ? 'text' : 'password'" v-model="loginForm.password" required>
+                            <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'" @click="showPassword = !showPassword"></i>
+                        </div>
+                    </div>
+                    <div v-if="loginError" class="login-error">{{ loginError }}</div>
+                    <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
+                        {{ isLoading ? 'Loading...' : 'Sign In' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div v-else-if="userRole === 'Master' && !selectedBrand" id="loginScreen" key="screen-brand-picker">
+        <div class="login-visual">
+            <div class="login-visual-shape shape-1"></div>
+            <div class="login-visual-shape shape-2"></div>
+            <div class="login-visual-content">
+                <div class="login-brand login-brand-light">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>MASAR</span>
                 </div>
-                <div v-if="loginError" class="login-error">{{ loginError }}</div>
-                <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
-                    {{ isLoading ? 'Loading...' : 'Sign In' }}
+                <h1 class="login-visual-headline">Multi-branch Approval System &amp; Authorization Routing</h1>
+                <p class="login-visual-sub">Masar</p>
+            </div>
+        </div>
+        <div class="login-form-panel">
+            <div class="login-card">
+                <button type="button" class="btn-ghost mb-3" @click="handleLogout" style="padding:6px 12px; font-size:12px;">
+                    <i class="bi bi-box-arrow-right"></i> Logout
                 </button>
-            </form>
-        </div>
-    </div>
-
-    <div v-else-if="userRole === 'Master' && !selectedBrand" id="loginScreen">
-        <div class="login-card">
-            <button type="button" class="btn-ghost mb-3" @click="handleLogout" style="padding:6px 12px; font-size:12px;">
-                <i class="bi bi-box-arrow-right"></i> Logout
-            </button>
-            <div class="login-brand">
-                <div class="mark"><i class="bi bi-box-seam"></i></div>
-                <span>ABUYA GROUP</span>
-            </div>
-            <p class="sub">Pilih brand yang mau diakses</p>
-
-            <div class="brand-choice" @click="chooseBrand('Kebuli Abuya')">
-                <div class="brand-choice-icon"><i class="bi bi-egg-fried"></i></div>
-                <div>
-                    <div class="brand-choice-name">Kebuli Abuya</div>
-                    <div class="brand-choice-sub">Masuk sebagai Kebuli Abuya</div>
+                <div class="login-brand login-brand-mobile">
+                    <div class="mark"><i class="bi bi-box-seam"></i></div>
+                    <span>MASAR</span>
                 </div>
-                <i class="bi bi-chevron-right"></i>
-            </div>
-            <div class="brand-choice" @click="chooseBrand('Almaz Fried Chicken')">
-                <div class="brand-choice-icon" style="background: var(--warn-soft);"><i class="bi bi-egg-fried" style="color: var(--warn);"></i></div>
-                <div>
-                    <div class="brand-choice-name">Almaz Fried Chicken</div>
-                    <div class="brand-choice-sub">Masuk sebagai Almaz Fried Chicken</div>
+                <p class="sub">Pilih brand yang mau diakses</p>
+
+                <div class="brand-choice" @click="chooseBrand('Kebuli Abuya')">
+                    <div class="brand-choice-icon"><i class="bi bi-egg-fried"></i></div>
+                    <div>
+                        <div class="brand-choice-name">Kebuli Abuya</div>
+                        <div class="brand-choice-sub">Masuk sebagai Kebuli Abuya</div>
+                    </div>
+                    <i class="bi bi-chevron-right"></i>
                 </div>
-                <i class="bi bi-chevron-right"></i>
+                <div class="brand-choice" @click="chooseBrand('Almaz Fried Chicken')">
+                    <div class="brand-choice-icon" style="background: var(--warn-soft);"><i class="bi bi-egg-fried" style="color: var(--warn);"></i></div>
+                    <div>
+                        <div class="brand-choice-name">Almaz Fried Chicken</div>
+                        <div class="brand-choice-sub">Masuk sebagai Almaz Fried Chicken</div>
+                    </div>
+                    <i class="bi bi-chevron-right"></i>
+                </div>
             </div>
         </div>
     </div>
 
-    <div v-else class="d-flex-layout">
+    <div v-else class="d-flex-layout" key="screen-dashboard">
 
         <div class="sidebar">
             <div class="sidebar-brand">
                 <div class="mark"><i class="bi bi-box-seam"></i></div>
-                <span>ABUYA GROUP</span>
+                <span>MASAR</span>
             </div>
 
             <div class="user-profile">
@@ -126,7 +155,10 @@
                     <div style="font-size: 11px; color: var(--primary); font-weight: 700;">Role: {{ userRole }}</div>
                     <div style="font-size: 10px; color: var(--muted); font-weight: 600;">{{ userBrand || 'All Brands' }}</div>
                 </div>
-                <button class="btn-icon text-danger" @click="handleLogout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
+                <div style="display:flex; gap:6px;">
+                    <button v-if="userRole === 'Master'" class="btn-icon" @click="backToBrandPicker" title="Ganti Brand"><i class="bi bi-arrow-left-right"></i></button>
+                    <button class="btn-icon text-danger" @click="handleLogout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
+                </div>
             </div>
 
             <ul class="sidebar-menu">
@@ -735,6 +767,7 @@
             </transition>
         </div>
     </div>
+    </Transition>
 </div>
 
 <script src="kahuripan/app.js"></script>
