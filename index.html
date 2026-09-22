@@ -465,6 +465,15 @@
                                     <i class="bi bi-person-plus me-1"></i> {{ isCreatingUser ? 'Membuat...' : 'Buat Akun' }}
                                 </button>
                             </div>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center; margin-top: 20px;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Buat banyak akun sekaligus lewat Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Username</b> (wajib), <b>Password</b> (wajib), <b>Role</b> (wajib -- SM/AM/Master), <b>Brand</b> (opsional -- kosongin kalo Master).</p>
+                                <input type="file" ref="userFileInput" @change="handleUserFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.userFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

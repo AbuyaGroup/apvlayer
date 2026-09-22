@@ -1429,6 +1429,92 @@ const app = createApp({
             }
         };
 
+        const handleUserFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            isLoading.value = true;
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    toast('File Excel kosong!', 'warn');
+                    return;
+                }
+
+                const usernameCol = findCol(rows[0], 'Username', 'username', 'Email', 'email');
+                const passwordCol = findCol(rows[0], 'Password', 'password');
+                const roleCol = findCol(rows[0], 'Role', 'role');
+                const brandCol = findCol(rows[0], 'Brand', 'brand');
+
+                if (!usernameCol || !passwordCol || !roleCol) {
+                    toast(`Gagal! Kolom Username/Password/Role tidak ditemukan. Kolom yang kebaca: ${Object.keys(rows[0]).join(', ')}`, 'error');
+                    return;
+                }
+
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.access_token) {
+                    toast('Sesi login gak valid, coba login ulang.', 'error');
+                    return;
+                }
+
+                let success = 0;
+                let failed = 0;
+                const errors = [];
+
+                for (const row of rows) {
+                    const username = String(row[usernameCol] ?? '').trim();
+                    const password = String(row[passwordCol] ?? '').trim();
+                    const role = String(row[roleCol] ?? '').trim();
+                    const brand = brandCol ? String(row[brandCol] ?? '').trim() : '';
+
+                    if (!username || !password || !role) continue;
+
+                    try {
+                        const res = await fetch(CREATE_USER_FUNCTION_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`,
+                                'apikey': SUPABASE_ANON_KEY
+                            },
+                            body: JSON.stringify({
+                                username,
+                                password,
+                                role,
+                                brand: role === 'Master' ? null : (brand || null)
+                            })
+                        });
+                        const result = await res.json();
+                        if (!res.ok || result.error) {
+                            failed++;
+                            errors.push(`${username}: ${result.error || 'Unknown error'}`);
+                        } else {
+                            success++;
+                        }
+                    } catch (err) {
+                        failed++;
+                        errors.push(`${username}: gagal konek server`);
+                    }
+                }
+
+                if (success > 0) toast(`${success} akun berhasil dibuat.`, 'success');
+                if (failed > 0) {
+                    console.error('Gagal bikin akun:', errors);
+                    toast(`${failed} akun gagal dibuat. Cek console buat detail.`, 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                toast('Gagal memproses file Excel.', 'error');
+            } finally {
+                isLoading.value = false;
+                event.target.value = '';
+            }
+        };
+
         const submitPR = async () => {
             if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
             if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
@@ -1858,7 +1944,7 @@ const app = createApp({
             toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
             editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
-            newUserForm, isCreatingUser, createNewUser, ROLE_SELECT_OPTIONS,
+            newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }
