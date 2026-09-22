@@ -777,10 +777,10 @@ const app = createApp({
         const openViewPO = (po) => { viewingPOId.value = po.id; currentTab.value = 'view-po'; };
         const backFromViewPO = () => { viewingPOId.value = null; currentTab.value = 'daftar-po'; };
 
-        const PO_EXPORT_HEADERS = ['Purchase Date', 'Required Date', 'PO Number', 'PR Number', 'Branch', 'Shipping', 'Product Name', 'Unit', 'Purchase Qty', 'PIC', 'Notes', 'PO Created By'];
+        const PO_EXPORT_HEADERS = ['Purchase Date', 'Required Date', 'PO Number', 'PR Number', 'Branch', 'Product Name', 'Unit', 'Purchase Qty', 'Shipping', 'PIC', 'Notes', 'PO Created By'];
         const PO_EXPORT_COLS = [
-            { wch: 13.89 }, { wch: 13.55 }, { wch: 16.78 }, { wch: 11 }, { wch: 7.33 }, { wch: 10 },
-            { wch: 13.55 }, { wch: 4.55 }, { wch: 12.89 }, { wch: 10 }, { wch: 6.11 }, { wch: 14.11 }
+            { wch: 13.89 }, { wch: 13.55 }, { wch: 16.78 }, { wch: 11 }, { wch: 7.33 },
+            { wch: 13.55 }, { wch: 4.55 }, { wch: 12.89 }, { wch: 10 }, { wch: 10 }, { wch: 6.11 }, { wch: 14.11 }
         ];
 
         const productNameUnitFor = (it) => {
@@ -794,11 +794,11 @@ const app = createApp({
         const poExportRows = (po) => {
             const pr = po.purchase_requests || {};
             const items = itemsByPrId.value[po.pr_id] || [];
-            const base = [formatDate(po.created_at), formatDate(pr.required_date), po.po_number, pr.pr_number || '-', pr.branch_name || '-', pr.shipping_category || '-'];
-            if (items.length === 0) return [[...base, '-', '', '', pr.pic || '-', pr.notes || '', po.created_by || '-']];
+            const base = [formatDate(po.created_at), formatDate(pr.required_date), po.po_number, pr.pr_number || '-', pr.branch_name || '-'];
+            if (items.length === 0) return [[...base, '-', '', '', pr.shipping_category || '-', pr.pic || '-', pr.notes || '', po.created_by || '-']];
             return items.map(it => {
                 const { name, unit } = productNameUnitFor(it);
-                return [...base, name, unit, it.qty, pr.pic || '-', pr.notes || '', po.created_by || '-'];
+                return [...base, name, unit, it.qty, pr.shipping_category || '-', pr.pic || '-', pr.notes || '', po.created_by || '-'];
             });
         };
 
