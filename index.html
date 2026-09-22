@@ -414,7 +414,7 @@
                                 <div class="field field-fit-content"><label>Shipping Category</label>
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
-                                <div class="field" v-if="form.shipping_category === 'Indirect'"><label>PIC</label>
+                                <div class="field" v-if="form.shipping_category"><label>PIC</label>
                                     <searchable-select v-model="form.pic" :options="picOptions" placeholder="-- Pilih PIC --"></searchable-select>
                                 </div>
                             </div>

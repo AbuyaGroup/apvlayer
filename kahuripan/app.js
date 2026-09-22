@@ -53,7 +53,6 @@ function findCol(row, ...candidates) {
     return null;
 }
 
-// Tebak brand dari nama cabang, contoh: "Almaz Fried Chicken - Bintara" -> "Almaz Fried Chicken"
 function deriveBrandFromBranchName(branchName) {
     const n = String(branchName || '').toLowerCase();
     if (n.includes('almaz')) return 'Almaz Fried Chicken';
@@ -68,10 +67,6 @@ const SearchableSelect = {
         modelValue: { default: '' },
         options: { type: Array, default: () => [] },
         placeholder: { type: String, default: '-- Pilih --' },
-        // Searchbar internal (ketik buat nyaring opsi) DEFAULT-nya mati -- kebanyakan dropdown di
-        // app ini opsinya dikit/fixed (Status, Shipping, PIC, dst), jadi searchbar cuma nambah
-        // langkah. Cuma dropdown yang opsinya bisa banyak/panjang (Branch, Barang/Product) yang
-        // nyalain ini lewat prop :searchable="true".
         searchable: { type: Boolean, default: false }
     },
     emits: ['update:modelValue'],
@@ -179,8 +174,6 @@ const MultiSelectDropdown = {
         const searchQuery = ref('');
         const wrapEl = ref(null);
         const searchInput = ref(null);
-        // Salinan lokal sementara pas dropdown lagi kebuka -- checkbox nyentang/nglepas cuma
-        // ngubah ini dulu, BELUM ke-emit ke parent sampe tombol Apply di-klik.
         const pending = ref([...props.modelValue]);
 
         const labelFor = (v) => {
@@ -188,9 +181,6 @@ const MultiSelectDropdown = {
             return found ? found.label : v;
         };
 
-        // Ringkasan yang keliatan di box utama pas ketutup: kosong -> placeholder, 1 kepilih ->
-        // nama cabangnya, lebih dari 1 -> "N dipilih" -- SELALU 1 baris (dipotong "..." kalo
-        // kepanjangan lewat rule .ss-control > span yang udah ada), jadi box-nya gak pernah melar.
         const summaryLabel = computed(() => {
             if (props.modelValue.length === 0) return props.placeholder;
             if (props.modelValue.length === 1) return labelFor(props.modelValue[0]);
@@ -284,10 +274,6 @@ function trimTrailingWeek(instance) {
     lastRow.forEach(d => { d.style.display = allNextMonth ? 'none' : ''; });
 }
 
-// ============================================================
-// KOMPONEN DATE RANGE PICKER -- kalender beneran (dari-sampe) pake library
-// flatpickr (di-load di index.html). Ganti 2 kotak <input type=date> yang lama.
-// v-model isinya object { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } (kosong kalo belum dipilih).
 
 const DateRangeFilter = {
     props: {
@@ -339,11 +325,6 @@ const DateRangeFilter = {
     }
 };
 
-// ============================================================
-// KOMPONEN DATE PICKER SATUAN -- sama tampilannya kayak DateRangeFilter di
-// Daftar PR (ikon kalender + kalender flatpickr pas diklik), tapi cuma milih
-// 1 tanggal (bukan range). Dipake di field "Required Date" pas Buat PR.
-// v-model isinya string 'YYYY-MM-DD' (kosong kalo belum dipilih).
 
 const DatePickerField = {
     props: {
@@ -383,7 +364,6 @@ const DatePickerField = {
     }
 };
 
-// Opsi tetap buat dropdown filter status di Daftar PR
 const STATUS_OPTIONS = [
     { value: '', label: 'All Status' },
     { value: 'Pending', label: 'Pending' },
@@ -481,11 +461,9 @@ const app = createApp({
         const userRole = ref('');
         const loginForm = ref({ email: '', password: '' });
         const loginError = ref('');
-        const sessionExpiredMessage = ref(''); // pesan pas sesi abis (beda dari salah password)
+        const sessionExpiredMessage = ref('');
         const isLoading = ref(false);
 
-        // Dipake buat bedain signOut() yang emang kita sengaja panggil (logout manual/idle)
-        // vs signOut yang kejadian sendiri di luar kontrol kita (token invalid, dsb).
         let manualSignOut = false;
         let idleTimer = null;
         let lastActivityAt = Date.now();
@@ -598,23 +576,14 @@ const app = createApp({
             const h = (window.location.hash || '').replace('#', '');
             return SIDEBAR_TABS.includes(h) ? h : null;
         };
-        // Simpen tab yang lagi dibuka biar refresh halaman gak balik ke Dashboard lagi, DAN
-        // update #hash di address bar (replaceState -- gak nambah entry history baru) buat 4 menu
-        // utama, biar url-nya "jujur" nunjuk ke tab yang lagi kebuka (bisa di-bookmark/di-share/
-        // klik kanan "Buka di tab baru" dari sidebar dan bener-bener nyampe ke tab yang sama).
         watch(currentTab, (val) => {
             try { localStorage.setItem('lastActiveTab', val); } catch (e) {}
             try {
                 if (SIDEBAR_TABS.includes(val)) history.replaceState(null, '', '#' + val);
             } catch (e) {}
         });
-        // Balikin tab terakhir, tapi tolak tab Master Data kalo role-nya bukan Master
-        // (jaga-jaga di browser bareng: akun Master abis buka Master Data, logout,
-        // akun AM login di browser yang sama -- jangan sampe ke-lempar ke tab itu)
         const restoreLastTab = (role) => {
             try {
-                // #hash di URL (misal dari link yang di-klik-kanan "Buka di tab baru") menang
-                // duluan dibanding tab terakhir yang kesimpen di localStorage.
                 const hashTab = tabFromHash();
                 if (hashTab && (hashTab !== 'master-hub' || role === 'Master')) {
                     currentTab.value = hashTab;
@@ -641,28 +610,16 @@ const app = createApp({
         const masterPics = ref([]);
 
         const form = ref({ branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] });
-        // PIC cuma relevan kalo Kategori Pengiriman = Indirect -- kalo user ganti balik ke
-        // Direct (atau kategori lain), kosongin lagi PIC-nya biar gak ke-submit nyangkut/stale.
-        watch(() => form.value.shipping_category, (val) => {
-            if (val !== 'Indirect') form.value.pic = '';
+        watch(() => form.value.shipping_category, () => {
+            form.value.pic = '';
         });
         const newItemProductId = ref('');
-        // qty defaultnya null (bukan 0) -- kalo di-set 0, input type="number" bakal nampilin
-        // angka "0" literal (nutupin placeholder "Jumlah"), jadi keliatan kayak udah keisi
-        // padahal belom, dan orang gak sadar harus dihapus dulu sebelum ngetik jumlah beneran.
-        // null bikin field-nya kosong beneran (placeholder keliatan), tapi validasi "harus > 0"
-        // tetep jalan sama kayak sebelumnya (null itu falsy juga).
         const newItemQty = ref(null);
 
-        // State edit-in-place buat item yang UDAH ditambahin ke form.items (belum ke-submit ke DB).
-        // Sebelumnya cuma bisa dihapus doang, sekarang barang/qty-nya bisa diganti tanpa hapus+tambah ulang.
         const editingFormItemIdx = ref(null);
         const editFormItemProductId = ref('');
         const editFormItemQty = ref(null);
 
-        // Balikin form Buat PR ke kosong total -- dipake pas Cancel, pas mau buka
-        // form baru (biar gak kebawa data PR yang sebelumnya lagi diisi/dibatalin),
-        // dan abis submit sukses.
         const resetPRForm = () => {
             form.value = { branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] };
             newItemProductId.value = '';
@@ -681,21 +638,14 @@ const app = createApp({
         };
 
         const filterStatus = ref('');
-        const prFilterShipping = ref(''); // filter dropdown Shipping di Daftar PR ('' = semua)
+        const prFilterShipping = ref('');
         const prDateRange = ref({ from: '', to: '' });
         const poDateRange = ref({ from: '', to: '' });
-        const poFilterShipping = ref(''); // filter dropdown Shipping di Daftar PO ('' = semua)
+        const poFilterShipping = ref('');
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
         const picSearchQuery = ref('');
 
-        // ============================================================
-        // FILTER "Select Target Column" + search box di Daftar PR/PO -- pilih dulu kolom yang mau
-        // di-search (dropdown), terus ketik query-nya di search box sampingnya. KHUSUS kolom
-        // "Branch": search box-nya DIGANTI jadi multi-select Branch (prBranchFilter/poBranchFilter,
-        // array) + tombol Apply yang keliatan di sampingnya -- field lain (Request/PO Number, PIC,
-        // Notes) tetep pake 1 search box teks biasa (searchQuery/poSearchQuery).
-        // ============================================================
         const prSearchField = ref('pr_number');
         const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
         const searchQuery = ref('');
@@ -706,15 +656,9 @@ const app = createApp({
         const poSearchQuery = ref('');
         const poBranchFilter = ref([]);
 
-        // ============================================================
-        // FILTER Dashboard -- Branch (multiselect) & range tanggal di atas Dashboard Overview.
-        // CUMA mempengaruhi donut chart + 2 list Top Items, notifikasi TETEP nampilin semua
-        // (sesuai request eksplisit -- notifikasi PR hampir Expired gak boleh ke-filter).
-        // ============================================================
         const dashBranchFilter = ref([]);
         const dashDateRange = ref({ from: '', to: '' });
 
-        // Kelompokin item per pr_id biar gampang dipanggil di template: itemsByPrId[pr.id]
         const itemsByPrId = computed(() => {
             const map = {};
             prItems.value.forEach(it => {
@@ -724,7 +668,6 @@ const app = createApp({
             return map;
         });
 
-        // Nambah 1 item ke list form Buat PR (belum masuk DB, baru lokal di browser dulu)
         const addFormItem = () => {
             if (!newItemProductId.value) { toast('Pilih barang dulu ya.', 'warn'); return; }
             if (!newItemQty.value || newItemQty.value <= 0) { toast('Isi jumlah dulu ya (harus lebih dari 0).', 'warn'); return; }
@@ -744,7 +687,6 @@ const app = createApp({
             if (editingFormItemIdx.value === idx) editingFormItemIdx.value = null;
         };
 
-        // Edit-in-place item yang udah ditambahin (ganti barang dan/atau qty-nya, tanpa hapus+tambah ulang)
         const startEditFormItem = (idx) => {
             const it = form.value.items[idx];
             editingFormItemIdx.value = idx;
@@ -768,10 +710,9 @@ const app = createApp({
 
         const editingPR = computed(() => editingPRId.value ? (prs.value.find(pr => pr.id === editingPRId.value) || null) : null);
         const editPRNewItemProductId = ref('');
-        const editPRNewItemQty = ref(null); // null biar field kosong (placeholder "Jumlah" keliatan), bukan nampilin "0"
+        const editPRNewItemQty = ref(null);
 
         const editPRItems = computed(() => editingPR.value ? (itemsByPrId.value[editingPR.value.id] || []) : []);
-        // Cuma AM/Master yang bisa edit, dan cuma kalo PR-nya masih Pending
         const canEditPR = computed(() =>
             !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'Master')
         );
@@ -861,25 +802,17 @@ const app = createApp({
         const editBranchForm = ref({ branch_name: '', branch_code: '', brand: '' });
         const selectedBranchIds = ref([]);
 
-        // STATE EDIT & BULK SELECT -- Master Product
         const editingProductId = ref(null);
         const editProductForm = ref({ name: '', unit: '', brand: '' });
         const selectedProductIds = ref([]);
 
-        // STATE EDIT & BULK SELECT -- Master PIC
         const editingPicId = ref(null);
         const editPicForm = ref({ pic_name: '', shipping: '', brand: '' });
         const selectedPicIds = ref([]);
         const addPicForm = ref({ pic_name: '', shipping: '', brand: '' });
 
-        // Brand yang lagi "aktif" di workspace ini: AM selalu kekunci ke brand-nya sendiri,
-        // Master ngikut brand yang dia pilih di layar login (biar pas masuk salah satu "kamar"
-        // brand, data brand yang satunya gak ikut ketarik).
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
-        // Kebuli Abuya gak pake skema Indirect/PIC sama sekali -- jadi dropdown Kategori
-        // Pengiriman-nya di-filter cuma nyisain "Direct". Brand lain (Almaz Fried Chicken)
-        // tetep dapet pilihan lengkap (Direct + Indirect).
         const shippingCategoryOptions = computed(() => {
             if (activeBrand.value === 'Kebuli Abuya') {
                 return SHIPPING_CATEGORY_OPTIONS.filter(o => o.value === 'Direct');
@@ -1106,7 +1039,6 @@ const app = createApp({
             return brandManagedPics.value.filter(p => (p.pic_name || '').toLowerCase().includes(query));
         });
 
-        // "Select all" nyala kalo semua baris yang lagi keliatan (hasil search) udah dipilih
         const allBranchesSelected = computed(() =>
             filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
         );
@@ -1123,12 +1055,9 @@ const app = createApp({
             return list.map(p => ({ value: p.pic_name, label: p.pic_name }));
         });
 
-        // Dropdown cabang & item pas Buat PR -- ngikut brand yang lagi aktif (AM: brand-nya sendiri,
-        // Master: brand yang lagi dia buka). Pake list yang sama kayak Master Data biar konsisten.
         const brandBranches = brandManagedBranches;
         const brandProducts = brandManagedProducts;
 
-        // Opsi buat dropdown searchable (SearchableSelect) di form Buat PR
         const branchOptions = computed(() => brandBranches.value.map(b => ({ value: b.branch_name, label: b.branch_name })));
         const productOptions = computed(() => brandProducts.value.map(p => ({
             value: p.id,
@@ -1179,7 +1108,6 @@ const app = createApp({
 
                 const { role, brand } = await fetchRoleAndBrand(fullEmail);
 
-                // Kalo akun ini kekunci ke brand tertentu (bukan Master) dan beda sama brand yang dipilih -> tolak
                 if (brand && brand !== selectedBrand.value) {
                     manualSignOut = true;
                     await supabaseClient.auth.signOut();
@@ -1192,8 +1120,6 @@ const app = createApp({
                 userEmail.value = usernameInput;
                 userRole.value = role;
                 userBrand.value = brand;
-                // Simpen brand yang lagi dibuka biar kalo halaman di-refresh, Master gak
-                // balik ngeliat semua brand lagi (workspace tetep ke-scope ke brand ini)
                 try { localStorage.setItem('activeBrandChoice', selectedBrand.value); } catch (e) {}
                 startIdleWatcher();
                 await fetchData();
@@ -1390,12 +1316,10 @@ const app = createApp({
         };
 
         const submitPR = async () => {
-            // Validasi manual -- dropdown Cabang & Kategori Pengiriman sekarang komponen custom
-            // (SearchableSelect), bukan <select required> asli, jadi validasi HTML5 gak jalan
             if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
             if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
             if (!form.value.shipping_category) { toast('Pilih kategori pengiriman dulu ya.', 'warn'); return; }
-            if (form.value.shipping_category === 'Indirect' && !form.value.pic) { toast('Pilih PIC dulu ya.', 'warn'); return; }
+            if (!form.value.pic) { toast('Pilih PIC dulu ya.', 'warn'); return; }
             if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
             try {
 
@@ -1408,7 +1332,7 @@ const app = createApp({
                     pr_number: prNumber,
                     branch_name: form.value.branch_name,
                     shipping_category: form.value.shipping_category,
-                    pic: form.value.shipping_category === 'Indirect' ? form.value.pic : null,
+                    pic: form.value.pic || null,
                     required_date: form.value.required_date || null,
                     notes: form.value.notes,
                     brand: prBrand,
@@ -1468,10 +1392,6 @@ const app = createApp({
             return false;
         };
 
-        // "Sentuh" PR induk -- update updated_at/updated_by-nya ke sekarang & user yang lagi
-        // login. Dipanggil abis tiap perubahan ke PR (item ditambah/diubah/dihapus, approve,
-        // reject), biar box "Information" di Detail PR nunjukin siapa & kapan terakhir ngedit.
-        // Silent (gak toast kalo gagal) -- ini metadata pelengkap, bukan aksi utamanya.
         const touchPR = async (prId) => {
             await supabaseClient.from('purchase_requests').update({
                 updated_at: new Date().toISOString(),
@@ -1502,7 +1422,6 @@ const app = createApp({
             await fetchData();
         };
 
-        // Ubah qty item yang udah ada -- auto-save langsung begitu diubah
         const updateEditingPRItemQty = async (item) => {
             const qty = Number(item.qty) || 1;
             const { error } = await supabaseClient.from('purchase_request_items').update({ qty }).eq('id', item.id);
@@ -1621,9 +1540,6 @@ const app = createApp({
             }
         };
 
-        // ============================================================
-        // EDIT & HAPUS -- MASTER BRANCH (Master only, dicek juga sama RLS di DB)
-        // ============================================================
         const toggleBranchSelect = (id) => {
             const idx = selectedBranchIds.value.indexOf(id);
             if (idx === -1) selectedBranchIds.value.push(id);
@@ -1633,7 +1549,7 @@ const app = createApp({
             selectedBranchIds.value = allBranchesSelected.value ? [] : filteredBranches.value.map(b => b.id);
         };
         const startEditBranch = (b) => {
-            editingProductId.value = null; // tutup edit produk kalo lagi kebuka
+            editingProductId.value = null;
             editingPicId.value = null;
             editingBranchId.value = b.id;
             editBranchForm.value = { branch_name: b.branch_name, branch_code: b.branch_code || '', brand: b.brand || '' };
@@ -1712,9 +1628,6 @@ const app = createApp({
             fetchData();
         };
 
-        // ============================================================
-        // EDIT & HAPUS -- MASTER PIC (Master only, dicek juga sama RLS di DB)
-        // ============================================================
         const togglePicSelect = (id) => {
             const idx = selectedPicIds.value.indexOf(id);
             if (idx === -1) selectedPicIds.value.push(id);
