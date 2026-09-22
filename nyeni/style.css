@@ -140,7 +140,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 
 .stickyroll-wrap{ position:relative; overflow:hidden; }
 .stickyroll-wrap.stickyroll-active{
-    max-height:280px; overflow-y:auto; overflow-x:hidden;
+    max-height:280px; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
     scrollbar-width:thin; scrollbar-color:#d7deea transparent;
 }
 .stickyroll-wrap.stickyroll-active::-webkit-scrollbar{ width:5px; }
@@ -225,7 +225,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-.table-scroll{ max-height: 460px; overflow-y: auto; }
+.table-scroll{ max-height: 460px; overflow-y: auto; overscroll-behavior: contain; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }
 
 .sortable-th{ cursor:pointer; user-select:none; white-space:nowrap; transition:color .15s ease; }
@@ -251,7 +251,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .ss-search{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); }
 .ss-search i{ color:var(--primary); font-size:14px; }
 .ss-search input{ border:none; outline:none; font-size:13.5px; width:100%; background:transparent; font-weight:500; padding:0; border-radius:0; height:auto; margin:0; }
-.ss-options{ max-height:230px; overflow-y:auto; }
+.ss-options{ max-height:230px; overflow-y:auto; overscroll-behavior:contain; }
 .ss-option{ padding:10px 14px; font-size:13.5px; cursor:pointer; color:var(--ink); }
 .ss-option:hover{ background:var(--primary-soft); color:var(--primary); }
 .ss-option.selected{ background:var(--primary-soft); color:var(--primary); font-weight:600; }
