@@ -517,6 +517,7 @@ const app = createApp({
         const loginError = ref('');
         const sessionExpiredMessage = ref('');
         const isLoading = ref(false);
+        const showPassword = ref(false);
 
         let manualSignOut = false;
         let idleTimer = null;
@@ -1767,7 +1768,7 @@ const app = createApp({
 
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
-            isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
+            isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             selectedBrand, userBrand, activeBrand, chooseBrand,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,

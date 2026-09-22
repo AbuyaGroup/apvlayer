@@ -59,6 +59,9 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .login-card p.sub{ color:var(--muted); font-size:13.5px; margin:0 0 26px; }
 .login-error{ background:var(--danger-soft); color:var(--danger); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
 .login-notice{ background:var(--warn-soft); color:var(--warn); font-size:13px; padding:10px 12px; border-radius:8px; margin-bottom:16px; font-weight: 600;}
+.password-wrap{ position:relative; }
+.password-wrap input{ width:100%; padding-right:36px; }
+.password-wrap i{ position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; color:var(--muted); }
 
 .d-flex-layout { display: flex; min-height: 100vh; }
 .sidebar {

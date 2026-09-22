@@ -69,7 +69,10 @@
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" v-model="loginForm.password" required>
+                    <div class="password-wrap">
+                        <input :type="showPassword ? 'text' : 'password'" v-model="loginForm.password" required>
+                        <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'" @click="showPassword = !showPassword"></i>
+                    </div>
                 </div>
                 <div v-if="loginError" class="login-error">{{ loginError }}</div>
                 <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
