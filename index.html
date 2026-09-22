@@ -54,60 +54,57 @@
         </div>
     </Transition>
 
-    <div v-if="!isLoggedIn">
-
-        <div v-if="!selectedBrand" id="loginScreen">
-            <div class="login-card">
-                <div class="login-brand">
-                    <div class="mark"><i class="bi bi-box-seam"></i></div>
-                    <span>ABUYA GROUP</span>
-                </div>
-                <p class="sub">Pilih brand yang mau diakses</p>
-
-                <div class="brand-choice" @click="selectedBrand = 'Kebuli Abuya'">
-                    <div class="brand-choice-icon"><i class="bi bi-egg-fried"></i></div>
-                    <div>
-                        <div class="brand-choice-name">Kebuli Abuya</div>
-                        <div class="brand-choice-sub">Masuk sebagai Kebuli Abuya</div>
-                    </div>
-                    <i class="bi bi-chevron-right"></i>
-                </div>
-                <div class="brand-choice" @click="selectedBrand = 'Almaz Fried Chicken'">
-                    <div class="brand-choice-icon" style="background: var(--warn-soft);"><i class="bi bi-egg-fried" style="color: var(--warn);"></i></div>
-                    <div>
-                        <div class="brand-choice-name">Almaz Fried Chicken</div>
-                        <div class="brand-choice-sub">Masuk sebagai Almaz Fried Chicken</div>
-                    </div>
-                    <i class="bi bi-chevron-right"></i>
-                </div>
+    <div v-if="!isLoggedIn" id="loginScreen">
+        <div class="login-card">
+            <div class="login-brand">
+                <div class="mark"><i class="bi bi-box-seam"></i></div>
+                <span>ABUYA GROUP</span>
             </div>
-        </div>
-
-        <div v-else id="loginScreen">
-            <div class="login-card">
-                <button type="button" class="btn-ghost mb-3" @click="backToBrandPicker" style="padding:6px 12px; font-size:12px;">
-                    <i class="bi bi-arrow-left"></i> Ganti Brand
-                </button>
-                <div class="login-brand">
-                    <div class="mark"><i class="bi bi-box-seam"></i></div>
-                    <span>ABUYA GROUP</span>
+            <p class="sub">Masuk ke akun Anda</p>
+            <div v-if="sessionExpiredMessage" class="login-notice">{{ sessionExpiredMessage }}</div>
+            <form @submit.prevent="handleLogin">
+                <div class="field">
+                    <label>Username</label>
+                    <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
                 </div>
-                <p class="sub">Login sebagai <b>{{ selectedBrand }}</b></p>
-                <div v-if="sessionExpiredMessage" class="login-notice">{{ sessionExpiredMessage }}</div>
-                <form @submit.prevent="handleLogin">
-                    <div class="field">
-                        <label>Username</label>
-                        <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
-                    </div>
-                    <div class="field">
-                        <label>Password</label>
-                        <input type="password" v-model="loginForm.password" required>
-                    </div>
-                    <div v-if="loginError" class="login-error">{{ loginError }}</div>
-                    <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
-                        {{ isLoading ? 'Loading...' : 'Sign In' }}
-                    </button>
-                </form>
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" v-model="loginForm.password" required>
+                </div>
+                <div v-if="loginError" class="login-error">{{ loginError }}</div>
+                <button type="submit" class="btn-primary w-100 mt-2" :disabled="isLoading">
+                    {{ isLoading ? 'Loading...' : 'Sign In' }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div v-else-if="userRole === 'Master' && !selectedBrand" id="loginScreen">
+        <div class="login-card">
+            <button type="button" class="btn-ghost mb-3" @click="handleLogout" style="padding:6px 12px; font-size:12px;">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+            <div class="login-brand">
+                <div class="mark"><i class="bi bi-box-seam"></i></div>
+                <span>ABUYA GROUP</span>
+            </div>
+            <p class="sub">Pilih brand yang mau diakses</p>
+
+            <div class="brand-choice" @click="chooseBrand('Kebuli Abuya')">
+                <div class="brand-choice-icon"><i class="bi bi-egg-fried"></i></div>
+                <div>
+                    <div class="brand-choice-name">Kebuli Abuya</div>
+                    <div class="brand-choice-sub">Masuk sebagai Kebuli Abuya</div>
+                </div>
+                <i class="bi bi-chevron-right"></i>
+            </div>
+            <div class="brand-choice" @click="chooseBrand('Almaz Fried Chicken')">
+                <div class="brand-choice-icon" style="background: var(--warn-soft);"><i class="bi bi-egg-fried" style="color: var(--warn);"></i></div>
+                <div>
+                    <div class="brand-choice-name">Almaz Fried Chicken</div>
+                    <div class="brand-choice-sub">Masuk sebagai Almaz Fried Chicken</div>
+                </div>
+                <i class="bi bi-chevron-right"></i>
             </div>
         </div>
     </div>

@@ -590,6 +590,7 @@ const app = createApp({
             userEmail.value = '';
             userRole.value = '';
             userBrand.value = null;
+            selectedBrand.value = '';
             loginForm.value = { email: '', password: '' };
             editingPRId.value = null;
             viewingPOId.value = null;
@@ -615,11 +616,9 @@ const app = createApp({
 
         const selectedBrand = ref('');
         const userBrand = ref(null);
-        const backToBrandPicker = () => {
-            selectedBrand.value = '';
-            loginError.value = '';
-            sessionExpiredMessage.value = '';
-            try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
+        const chooseBrand = (brand) => {
+            selectedBrand.value = brand;
+            try { localStorage.setItem('activeBrandChoice', brand); } catch (e) {}
         };
 
         const currentTab = ref('dashboard');
@@ -1162,19 +1161,13 @@ const app = createApp({
 
                 const { role, brand } = await fetchRoleAndBrand(fullEmail);
 
-                if (brand && brand !== selectedBrand.value) {
-                    manualSignOut = true;
-                    await supabaseClient.auth.signOut();
-                    manualSignOut = false;
-                    loginError.value = `Akun ini gak punya akses ke brand "${selectedBrand.value}".`;
-                    return;
-                }
-
                 isLoggedIn.value = true;
                 userEmail.value = usernameInput;
                 userRole.value = role;
                 userBrand.value = brand;
-                try { localStorage.setItem('activeBrandChoice', selectedBrand.value); } catch (e) {}
+                if (brand) {
+                    selectedBrand.value = brand;
+                }
                 startIdleWatcher();
                 await fetchData();
             } catch (err) {
@@ -1728,11 +1721,6 @@ const app = createApp({
 
         onMounted(async () => {
 
-            try {
-                const savedBrand = localStorage.getItem('activeBrandChoice');
-                if (savedBrand) selectedBrand.value = savedBrand;
-            } catch (e) {}
-
             let { data: { session } } = await supabaseClient.auth.getSession();
 
             if (!session) {
@@ -1752,6 +1740,14 @@ const app = createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
+                if (brand) {
+                    selectedBrand.value = brand;
+                } else {
+                    try {
+                        const savedBrand = localStorage.getItem('activeBrandChoice');
+                        if (savedBrand) selectedBrand.value = savedBrand;
+                    } catch (e) {}
+                }
                 restoreLastTab(role);
                 startIdleWatcher();
                 await fetchData();
@@ -1772,7 +1768,7 @@ const app = createApp({
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, handleLogin, handleLogout,
-            selectedBrand, userBrand, activeBrand, backToBrandPicker,
+            selectedBrand, userBrand, activeBrand, chooseBrand,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,
