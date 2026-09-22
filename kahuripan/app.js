@@ -357,8 +357,8 @@ const DateRangeFilter = {
                 positionElement: wrapEl.value,
                 onReady: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onOpen: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
-                onMonthChange: (sd, ds, instance) => trimTrailingWeek(instance),
-                onYearChange: (sd, ds, instance) => trimTrailingWeek(instance),
+                onMonthChange: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onYearChange: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onChange: (selectedDates) => {
                     if (selectedDates.length === 2) {
                         emit('update:modelValue', { from: dateToISO(selectedDates[0]), to: dateToISO(selectedDates[1]) });
@@ -405,8 +405,8 @@ const DatePickerField = {
                 positionElement: wrapEl.value,
                 onReady: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onOpen: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
-                onMonthChange: (sd, ds, instance) => trimTrailingWeek(instance),
-                onYearChange: (sd, ds, instance) => trimTrailingWeek(instance),
+                onMonthChange: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
+                onYearChange: (sd, ds, instance) => { syncFlatpickrWidth(instance, wrapEl.value); trimTrailingWeek(instance); },
                 onChange: (selectedDates) => {
                     emit('update:modelValue', selectedDates.length ? dateToISO(selectedDates[0]) : '');
                 }
