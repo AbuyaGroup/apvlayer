@@ -85,7 +85,7 @@
                 <form @submit.prevent="handleLogin">
                     <div class="field">
                         <label>Username</label>
-                        <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
+                        <input type="text" v-model="loginForm.email" required>
                     </div>
                     <div class="field">
                         <label>Password</label>
@@ -468,11 +468,11 @@
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">Buat Akun Baru</p>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Username</label>
-                                    <input type="text" v-model="newUserForm.username" placeholder="Contoh : areamanager2">
+                                    <input type="text" v-model="newUserForm.username">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Password</label>
-                                    <input type="text" v-model="newUserForm.password" placeholder="Minimal 6 karakter">
+                                    <input type="text" v-model="newUserForm.password">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Role</label>
