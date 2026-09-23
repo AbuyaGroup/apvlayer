@@ -751,7 +751,7 @@ const app = createApp({
             stopIdleWatcher();
             manualSignOut = true;
             await releaseActiveSession();
-            await supabaseClient.auth.signOut();
+            await supabaseClient.auth.signOut({ scope: 'local' });
             manualSignOut = false;
             clearSessionState();
             sessionExpiredMessage.value = `Ups! Antum ke-logout karena gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
@@ -1346,7 +1346,7 @@ const app = createApp({
                 const claimed = await claimActiveSession(fullEmail);
                 if (!claimed) {
                     manualSignOut = true;
-                    await supabaseClient.auth.signOut();
+                    await supabaseClient.auth.signOut({ scope: 'local' });
                     manualSignOut = false;
                     loginError.value = 'Akun nya lagi kita pake bang!';
                     return;
@@ -1376,7 +1376,7 @@ const app = createApp({
             stopIdleWatcher();
             manualSignOut = true;
             await releaseActiveSession();
-            await supabaseClient.auth.signOut();
+            await supabaseClient.auth.signOut({ scope: 'local' });
             manualSignOut = false;
             clearSessionState();
             sessionExpiredMessage.value = '';
