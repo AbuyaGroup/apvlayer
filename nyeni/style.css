@@ -424,3 +424,33 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .brand-choice-name{ font-weight:700; font-size:14.5px; color:var(--ink); }
 .brand-choice-sub{ font-size:11.5px; color:var(--muted); }
 .brand-choice i.bi-chevron-right{ margin-left:auto; color:var(--muted); }
+@keyframes skeleton-shimmer{
+    0%{ background-position:-400px 0; }
+    100%{ background-position:400px 0; }
+}
+.skel-bar{
+    height:14px; border-radius:6px; width:100%;
+    background:linear-gradient(90deg, var(--surface-0) 25%, var(--border) 37%, var(--surface-0) 63%);
+    background-size:400px 100%;
+    animation:skeleton-shimmer 1.4s ease infinite;
+}
+.skeleton-row td{ padding:14px 18px; border-bottom:1px solid var(--border); }
+.skeleton-row .skel-bar{ max-width:140px; }
+.skeleton-row td:first-child .skel-bar{ max-width:18px; height:18px; border-radius:4px; }
+.skeleton-row td:last-child .skel-bar{ max-width:60px; margin-left:auto; }
+.skel-dash-donut{
+    width:200px; height:200px; border-radius:50%;
+    background:linear-gradient(90deg, var(--surface-0) 25%, var(--border) 37%, var(--surface-0) 63%);
+    background-size:400px 100%;
+    animation:skeleton-shimmer 1.4s ease infinite;
+    margin:0 auto;
+}
+.skel-dash-box{
+    height:64px; border-radius:14px;
+    background:linear-gradient(90deg, var(--surface-0) 25%, var(--border) 37%, var(--surface-0) 63%);
+    background-size:400px 100%;
+    animation:skeleton-shimmer 1.4s ease infinite;
+}
+.skel-dash-list-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; gap:16px; }
+.skel-dash-list-row .skel-bar:first-child{ max-width:220px; }
+.skel-dash-list-row .skel-bar:last-child{ max-width:40px; }

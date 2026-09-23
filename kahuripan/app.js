@@ -2162,6 +2162,7 @@ const app = createApp({
             }
 
             if (session?.user?.email) {
+                isLoading.value = true;
                 const { role, brand } = await fetchRoleAndBrand(session.user.email);
                 isLoggedIn.value = true;
                 userEmail.value = session.user.email.split('@')[0];
@@ -2179,6 +2180,7 @@ const app = createApp({
                 startIdleWatcher();
                 await touchActiveSession(session.user.email);
                 await fetchData();
+                isLoading.value = false;
                 startRealtimeSync();
 
                 tryOpenPRFromHash();
