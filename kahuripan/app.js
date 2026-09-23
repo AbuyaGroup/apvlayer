@@ -65,7 +65,7 @@ function deriveBrandFromBranchName(branchName) {
 
 const SESSION_TIMEOUT_MINUTES = 30;
 const SESSION_HEARTBEAT_INTERVAL_MS = 30000;
-const SESSION_STALE_THRESHOLD_SECONDS = 90;
+const SESSION_STALE_THRESHOLD_SECONDS = 180;
 
 const SearchableSelect = {
     props: {
@@ -538,18 +538,26 @@ const app = createApp({
         let activeSessionId = null;
         let currentSessionEmail = null;
         let heartbeatTimer = null;
+        let visibilityHandler = null;
+
+        const sendHeartbeatOnce = async (email) => {
+            try {
+                await supabaseClient
+                    .from('active_sessions')
+                    .update({ last_seen: new Date().toISOString() })
+                    .eq('email', email)
+                    .eq('session_id', activeSessionId);
+            } catch (e) {}
+        };
 
         const startSessionHeartbeat = (email) => {
             stopSessionHeartbeat();
-            heartbeatTimer = setInterval(async () => {
-                try {
-                    await supabaseClient
-                        .from('active_sessions')
-                        .update({ last_seen: new Date().toISOString() })
-                        .eq('email', email)
-                        .eq('session_id', activeSessionId);
-                } catch (e) {}
-            }, SESSION_HEARTBEAT_INTERVAL_MS);
+            sendHeartbeatOnce(email);
+            heartbeatTimer = setInterval(() => sendHeartbeatOnce(email), SESSION_HEARTBEAT_INTERVAL_MS);
+            visibilityHandler = () => {
+                if (document.visibilityState === 'visible') sendHeartbeatOnce(email);
+            };
+            document.addEventListener('visibilitychange', visibilityHandler);
         };
 
         const stopSessionHeartbeat = () => {
@@ -557,22 +565,31 @@ const app = createApp({
                 clearInterval(heartbeatTimer);
                 heartbeatTimer = null;
             }
+            if (visibilityHandler) {
+                document.removeEventListener('visibilitychange', visibilityHandler);
+                visibilityHandler = null;
+            }
         };
 
         const claimActiveSession = async (email) => {
+            let savedSessionId = null;
+            try { savedSessionId = sessionStorage.getItem('activeSessionId'); } catch (e) {}
+
             const { data: existing } = await supabaseClient
                 .from('active_sessions')
                 .select('session_id, last_seen')
                 .eq('email', email)
                 .maybeSingle();
 
-            if (existing) {
+            const isSameDevice = !!existing && !!savedSessionId && existing.session_id === savedSessionId;
+
+            if (existing && !isSameDevice) {
                 const lastSeenMs = new Date(existing.last_seen).getTime();
                 const isStale = (Date.now() - lastSeenMs) > SESSION_STALE_THRESHOLD_SECONDS * 1000;
                 if (!isStale) return false;
             }
 
-            const newSessionId = crypto.randomUUID();
+            const newSessionId = isSameDevice ? existing.session_id : crypto.randomUUID();
             const { error } = await supabaseClient
                 .from('active_sessions')
                 .upsert({ email, session_id: newSessionId, last_seen: new Date().toISOString() }, { onConflict: 'email' });
