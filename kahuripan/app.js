@@ -714,9 +714,9 @@ const app = createApp({
         const expireSessionDueToIdle = async () => {
             stopIdleWatcher();
             manualSignOut = true;
+            await releaseActiveSession();
             await supabaseClient.auth.signOut();
             manualSignOut = false;
-            await releaseActiveSession();
             clearSessionState();
             sessionExpiredMessage.value = `Ups! Antum ke-logout karena gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
         };
@@ -1295,7 +1295,7 @@ const app = createApp({
             sessionExpiredMessage.value = '';
             try {
                 const usernameInput = loginForm.value.email || '';
-                const fullEmail = usernameInput.includes('@') ? usernameInput : `${usernameInput}@abuyagroup.com`;
+                const fullEmail = (usernameInput.includes('@') ? usernameInput : `${usernameInput}@abuyagroup.com`).toLowerCase();
 
                 const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
                     email: fullEmail,
@@ -1338,9 +1338,9 @@ const app = createApp({
         const handleLogout = async () => {
             stopIdleWatcher();
             manualSignOut = true;
+            await releaseActiveSession();
             await supabaseClient.auth.signOut();
             manualSignOut = false;
-            await releaseActiveSession();
             clearSessionState();
             sessionExpiredMessage.value = '';
             try { localStorage.removeItem('lastActiveTab'); } catch (e) {}
