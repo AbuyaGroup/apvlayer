@@ -1331,6 +1331,12 @@ const app = createApp({
             sessionExpiredMessage.value = '';
             try {
                 const usernameInput = loginForm.value.email || '';
+
+                if (/[A-Z]/.test(usernameInput)) {
+                    loginError.value = 'Username harus huruf kecil semua, gak boleh ada huruf besar.';
+                    return;
+                }
+
                 const fullEmail = (usernameInput.includes('@') ? usernameInput : `${usernameInput}@abuyagroup.com`).toLowerCase();
 
                 const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
@@ -1563,12 +1569,13 @@ const app = createApp({
         };
 
         const createNewUser = async () => {
-            const username = newUserForm.value.username.trim().toLowerCase();
+            const username = newUserForm.value.username.trim();
             const password = newUserForm.value.password;
             const role = newUserForm.value.role;
             const brand = newUserForm.value.brand;
 
             if (!username) { toast('Username gak boleh kosong.', 'warn'); return; }
+            if (/[A-Z]/.test(username)) { toast('Username harus huruf kecil semua, gak boleh ada huruf besar.', 'warn'); return; }
             if (!password || password.length < 6) { toast('Password minimal 6 karakter.', 'warn'); return; }
             if (!role) { toast('Pilih role dulu ya.', 'warn'); return; }
             if (role !== 'Master' && !brand) { toast('Pilih brand dulu ya.', 'warn'); return; }
@@ -1650,12 +1657,17 @@ const app = createApp({
                 const errors = [];
 
                 for (const row of rows) {
-                    const username = String(row[usernameCol] ?? '').trim().toLowerCase();
+                    const username = String(row[usernameCol] ?? '').trim();
                     const password = String(row[passwordCol] ?? '').trim();
                     const role = String(row[roleCol] ?? '').trim();
                     const brand = brandCol ? String(row[brandCol] ?? '').trim() : '';
 
                     if (!username || !password || !role) continue;
+                    if (/[A-Z]/.test(username)) {
+                        failed++;
+                        errors.push(`${username}: username harus huruf kecil semua.`);
+                        continue;
+                    }
                     if (role !== 'Master' && !brand) {
                         failed++;
                         errors.push(`${username}: kolom Brand kosong, wajib diisi buat role selain Master.`);
