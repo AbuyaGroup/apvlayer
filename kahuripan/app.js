@@ -1563,7 +1563,7 @@ const app = createApp({
         };
 
         const createNewUser = async () => {
-            const username = newUserForm.value.username.trim();
+            const username = newUserForm.value.username.trim().toLowerCase();
             const password = newUserForm.value.password;
             const role = newUserForm.value.role;
             const brand = newUserForm.value.brand;
@@ -1650,7 +1650,7 @@ const app = createApp({
                 const errors = [];
 
                 for (const row of rows) {
-                    const username = String(row[usernameCol] ?? '').trim();
+                    const username = String(row[usernameCol] ?? '').trim().toLowerCase();
                     const password = String(row[passwordCol] ?? '').trim();
                     const role = String(row[roleCol] ?? '').trim();
                     const brand = brandCol ? String(row[brandCol] ?? '').trim() : '';
