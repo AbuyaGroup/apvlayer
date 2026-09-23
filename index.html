@@ -23,7 +23,7 @@
 </head>
 <body>
 
-<div id="app" v-cloak>
+<div id="app" v-cloak :class="{ 'lock-page-scroll': !isLoggedIn || (userRole === 'Master' && !selectedBrand) }">
 
     <transition name="fade">
         <div v-if="appBooting" class="app-boot-splash">

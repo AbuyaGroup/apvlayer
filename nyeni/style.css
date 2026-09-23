@@ -6,8 +6,8 @@
     --shadow:0 12px 35px rgba(29,50,105,.08), 0 2px 5px rgba(29,50,105,.04);
 }
 *{ -webkit-tap-highlight-color:transparent; box-sizing: border-box; }
-html{ scrollbar-gutter: stable; }
 [v-cloak]{ display:none !important; }
+.lock-page-scroll{ height:100vh; overflow:hidden; }
 .app-boot-splash{
     position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
     background: radial-gradient(circle at 92% 4%, rgba(110,140,255,.14), transparent 24rem),
