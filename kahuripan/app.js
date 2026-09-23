@@ -535,6 +535,41 @@ const app = createApp({
         let lastActivityAt = Date.now();
         const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
 
+        const REALTIME_TABLES = ['purchase_requests', 'purchase_request_items', 'purchase_orders', 'master_branches', 'master_products', 'master_pics', 'user_roles'];
+        let realtimeChannel = null;
+        let realtimeRefetchTimer = null;
+        const isSyncing = ref(false);
+
+        const scheduleRealtimeRefetch = () => {
+            if (realtimeRefetchTimer) clearTimeout(realtimeRefetchTimer);
+            realtimeRefetchTimer = setTimeout(async () => {
+                isSyncing.value = true;
+                await fetchData();
+                isSyncing.value = false;
+            }, 400);
+        };
+
+        const startRealtimeSync = () => {
+            if (realtimeChannel) return;
+            let channel = supabaseClient.channel('app-data-sync');
+            REALTIME_TABLES.forEach((table) => {
+                channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRealtimeRefetch);
+            });
+            channel.subscribe();
+            realtimeChannel = channel;
+        };
+
+        const stopRealtimeSync = () => {
+            if (realtimeRefetchTimer) {
+                clearTimeout(realtimeRefetchTimer);
+                realtimeRefetchTimer = null;
+            }
+            if (realtimeChannel) {
+                supabaseClient.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+        };
+
         let activeSessionId = null;
         let currentSessionEmail = null;
         let heartbeatTimer = null;
@@ -700,6 +735,7 @@ const app = createApp({
         };
 
         const clearSessionState = () => {
+            stopRealtimeSync();
             isLoggedIn.value = false;
             userEmail.value = '';
             userRole.value = '';
@@ -1327,6 +1363,7 @@ const app = createApp({
                 }
                 startIdleWatcher();
                 await fetchData();
+                startRealtimeSync();
             } catch (err) {
                 console.error('Error login:', err);
                 loginError.value = 'Gagal terhubung ke Supabase.';
@@ -2142,6 +2179,7 @@ const app = createApp({
                 startIdleWatcher();
                 await touchActiveSession(session.user.email);
                 await fetchData();
+                startRealtimeSync();
 
                 tryOpenPRFromHash();
             }
@@ -2159,6 +2197,7 @@ const app = createApp({
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
+            isSyncing,
             selectedBrand, userBrand, activeBrand, chooseBrand, backToBrandPicker,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
