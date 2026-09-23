@@ -64,6 +64,8 @@ function deriveBrandFromBranchName(branchName) {
 }
 
 const SESSION_TIMEOUT_MINUTES = 30;
+const SESSION_HEARTBEAT_INTERVAL_MS = 30000;
+const SESSION_STALE_THRESHOLD_SECONDS = 90;
 
 const SearchableSelect = {
     props: {
@@ -533,6 +535,91 @@ const app = createApp({
         let lastActivityAt = Date.now();
         const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
 
+        let activeSessionId = null;
+        let currentSessionEmail = null;
+        let heartbeatTimer = null;
+
+        const startSessionHeartbeat = (email) => {
+            stopSessionHeartbeat();
+            heartbeatTimer = setInterval(async () => {
+                try {
+                    await supabaseClient
+                        .from('active_sessions')
+                        .update({ last_seen: new Date().toISOString() })
+                        .eq('email', email)
+                        .eq('session_id', activeSessionId);
+                } catch (e) {}
+            }, SESSION_HEARTBEAT_INTERVAL_MS);
+        };
+
+        const stopSessionHeartbeat = () => {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        };
+
+        const claimActiveSession = async (email) => {
+            const { data: existing } = await supabaseClient
+                .from('active_sessions')
+                .select('session_id, last_seen')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (existing) {
+                const lastSeenMs = new Date(existing.last_seen).getTime();
+                const isStale = (Date.now() - lastSeenMs) > SESSION_STALE_THRESHOLD_SECONDS * 1000;
+                if (!isStale) return false;
+            }
+
+            const newSessionId = crypto.randomUUID();
+            const { error } = await supabaseClient
+                .from('active_sessions')
+                .upsert({ email, session_id: newSessionId, last_seen: new Date().toISOString() }, { onConflict: 'email' });
+
+            if (error) return false;
+
+            activeSessionId = newSessionId;
+            currentSessionEmail = email;
+            try { sessionStorage.setItem('activeSessionId', newSessionId); } catch (e) {}
+            startSessionHeartbeat(email);
+            return true;
+        };
+
+        const touchActiveSession = async (email) => {
+            let sid = null;
+            try { sid = sessionStorage.getItem('activeSessionId'); } catch (e) {}
+            if (!sid) {
+                sid = crypto.randomUUID();
+                try { sessionStorage.setItem('activeSessionId', sid); } catch (e) {}
+            }
+            activeSessionId = sid;
+            currentSessionEmail = email;
+            try {
+                await supabaseClient
+                    .from('active_sessions')
+                    .upsert({ email, session_id: sid, last_seen: new Date().toISOString() }, { onConflict: 'email' });
+            } catch (e) {}
+            startSessionHeartbeat(email);
+        };
+
+        const releaseActiveSession = async () => {
+            stopSessionHeartbeat();
+            const email = currentSessionEmail;
+            const sid = activeSessionId;
+            activeSessionId = null;
+            currentSessionEmail = null;
+            try { sessionStorage.removeItem('activeSessionId'); } catch (e) {}
+            if (!email || !sid) return;
+            try {
+                await supabaseClient
+                    .from('active_sessions')
+                    .delete()
+                    .eq('email', email)
+                    .eq('session_id', sid);
+            } catch (e) {}
+        };
+
         const resetIdleTimer = () => { lastActivityAt = Date.now(); };
 
         const startIdleWatcher = () => {
@@ -612,6 +699,7 @@ const app = createApp({
             manualSignOut = true;
             await supabaseClient.auth.signOut();
             manualSignOut = false;
+            await releaseActiveSession();
             clearSessionState();
             sessionExpiredMessage.value = `Ups! Antum ke-logout karena gak ada aktivitas (lebih dari ${SESSION_TIMEOUT_MINUTES} menit). Login lagi ya.`;
         };
@@ -619,6 +707,7 @@ const app = createApp({
         supabaseClient.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT' && !manualSignOut && isLoggedIn.value) {
                 stopIdleWatcher();
+                releaseActiveSession();
                 clearSessionState();
                 sessionExpiredMessage.value = 'Sesi login Antum udah gak valid lagi. Login lagi ya.';
             }
@@ -1201,6 +1290,15 @@ const app = createApp({
                     return;
                 }
 
+                const claimed = await claimActiveSession(fullEmail);
+                if (!claimed) {
+                    manualSignOut = true;
+                    await supabaseClient.auth.signOut();
+                    manualSignOut = false;
+                    loginError.value = 'Akun nya lagi kita pake bang!';
+                    return;
+                }
+
                 const { role, brand } = await fetchRoleAndBrand(fullEmail);
 
                 isLoggedIn.value = true;
@@ -1225,6 +1323,7 @@ const app = createApp({
             manualSignOut = true;
             await supabaseClient.auth.signOut();
             manualSignOut = false;
+            await releaseActiveSession();
             clearSessionState();
             sessionExpiredMessage.value = '';
             try { localStorage.removeItem('lastActiveTab'); } catch (e) {}
@@ -2024,6 +2123,7 @@ const app = createApp({
                 }
                 restoreLastTab(role);
                 startIdleWatcher();
+                await touchActiveSession(session.user.email);
                 await fetchData();
 
                 tryOpenPRFromHash();
