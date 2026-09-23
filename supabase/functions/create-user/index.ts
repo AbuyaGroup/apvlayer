@@ -50,8 +50,15 @@ serve(async (req) => {
         if (String(password).length < 6) {
             return jsonResponse({ error: 'Password minimal 6 karakter.' }, 400)
         }
+        if (/[A-Z]/.test(String(username))) {
+            return jsonResponse({ error: 'Username harus huruf kecil semua, gak boleh ada huruf besar.' }, 400)
+        }
 
-        const email = String(username).includes('@') ? String(username) : `${username}@abuyagroup.com`
+        if (role !== 'Master' && !brand) {
+            return jsonResponse({ error: 'Brand wajib diisi buat role selain Master.' }, 400)
+        }
+
+        const email = (String(username).includes('@') ? String(username) : `${username}@abuyagroup.com`).toLowerCase()
         const finalBrand = role === 'Master' ? null : (brand || null)
 
         const { data: existingRole } = await adminClient

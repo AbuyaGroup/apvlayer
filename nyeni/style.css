@@ -6,6 +6,19 @@
     --shadow:0 12px 35px rgba(29,50,105,.08), 0 2px 5px rgba(29,50,105,.04);
 }
 *{ -webkit-tap-highlight-color:transparent; box-sizing: border-box; }
+html{ scrollbar-gutter: stable; }
+[v-cloak]{ display:none !important; }
+.app-boot-splash{
+    position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 92% 4%, rgba(110,140,255,.14), transparent 24rem),
+                radial-gradient(circle at 3% 28%, rgba(28,198,170,.08), transparent 26rem), var(--surface-0);
+}
+.app-boot-spinner{
+    width:38px; height:38px; border-radius:50%;
+    border:3px solid var(--border); border-top-color:var(--primary);
+    animation:app-boot-spin .7s linear infinite;
+}
+@keyframes app-boot-spin{ to{ transform:rotate(360deg); } }
 body{
     margin:0; min-height:100vh; color: var(--ink); font-family: 'Inter', system-ui, sans-serif; overflow-x:hidden;
     background: radial-gradient(circle at 92% 4%, rgba(110,140,255,.14), transparent 24rem),

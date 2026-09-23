@@ -23,7 +23,13 @@
 </head>
 <body>
 
-<div id="app">
+<div id="app" v-cloak>
+
+    <transition name="fade">
+        <div v-if="appBooting" class="app-boot-splash">
+            <div class="app-boot-spinner"></div>
+        </div>
+    </transition>
 
     <div class="toast-stack">
         <TransitionGroup name="toast">
@@ -65,7 +71,7 @@
                     <span>MASAR</span>
                 </div>
                 <h1 class="login-visual-headline">Multi-branch Approval System &amp; Authorization Routing</h1>
-                <p class="login-visual-sub">Bro Amin</p>
+                <p class="login-visual-sub">by Amin Ganteng</p>
             </div>
         </div>
         <div class="login-form-panel">
@@ -79,7 +85,7 @@
                 <form @submit.prevent="handleLogin">
                     <div class="field">
                         <label>Username</label>
-                        <input type="text" v-model="loginForm.email" required>
+                        <input type="text" v-model="loginForm.email" placeholder="Contoh : areamanager1" required>
                     </div>
                     <div class="field">
                         <label>Password</label>
@@ -107,7 +113,7 @@
                     <span>MASAR</span>
                 </div>
                 <h1 class="login-visual-headline">Multi-branch Approval System &amp; Authorization Routing</h1>
-                <p class="login-visual-sub">Bro Amin</p>
+                <p class="login-visual-sub">by Amin Ganteng</p>
             </div>
         </div>
         <div class="login-form-panel">
@@ -462,11 +468,11 @@
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">Buat Akun Baru</p>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Username</label>
-                                    <input type="text" v-model="newUserForm.username">
+                                    <input type="text" v-model="newUserForm.username" placeholder="Contoh : areamanager2">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Password</label>
-                                    <input type="text" v-model="newUserForm.password">
+                                    <input type="text" v-model="newUserForm.password" placeholder="Minimal 6 karakter">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Role</label>

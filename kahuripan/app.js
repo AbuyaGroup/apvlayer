@@ -522,6 +522,7 @@ const app = createApp({
     setup() {
 
         const isLoggedIn = ref(false);
+        const appBooting = ref(true);
         const userEmail = ref('');
         const userRole = ref('');
         const loginForm = ref({ email: '', password: '' });
@@ -2195,6 +2196,7 @@ const app = createApp({
                     } catch (e) {}
                 }
                 restoreLastTab(role);
+                appBooting.value = false;
                 startIdleWatcher();
                 await touchActiveSession(session.user.email);
                 await fetchData();
@@ -2202,6 +2204,8 @@ const app = createApp({
                 startRealtimeSync();
 
                 tryOpenPRFromHash();
+            } else {
+                appBooting.value = false;
             }
 
             window.addEventListener('hashchange', () => {
@@ -2216,7 +2220,7 @@ const app = createApp({
 
         return {
             toasts, dismissToast, confirmState, resolveConfirm,
-            isLoggedIn, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
+            isLoggedIn, appBooting, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             isSyncing,
             selectedBrand, userBrand, activeBrand, chooseBrand, backToBrandPicker,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
