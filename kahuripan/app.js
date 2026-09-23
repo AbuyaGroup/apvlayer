@@ -674,6 +674,7 @@ const app = createApp({
         const masterBranches = ref([]);
         const masterProducts = ref([]);
         const masterPics = ref([]);
+        const masterUsers = ref([]);
 
         const form = ref({ branch_name: '', required_date: '', shipping_category: '', pic: '', notes: '', items: [] });
         watch(() => form.value.shipping_category, () => {
@@ -711,6 +712,7 @@ const app = createApp({
         const branchSearchQuery = ref('');
         const productSearchQuery = ref('');
         const picSearchQuery = ref('');
+        const userSearchQuery = ref('');
 
         const prSearchField = ref('pr_number');
         const prSearchFieldLabel = computed(() => (PR_SEARCH_FIELDS.find(f => f.value === prSearchField.value) || {}).label || '');
@@ -879,6 +881,8 @@ const app = createApp({
 
         const newUserForm = ref({ username: '', password: '', role: '', brand: '' });
         const isCreatingUser = ref(false);
+        const editingUserId = ref(null);
+        const editUserForm = ref({ role: '', brand: '' });
 
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
@@ -1108,6 +1112,12 @@ const app = createApp({
             return brandManagedPics.value.filter(p => (p.pic_name || '').toLowerCase().includes(query));
         });
 
+        const filteredUsers = computed(() => {
+            if (!userSearchQuery.value) return masterUsers.value;
+            const query = userSearchQuery.value.toLowerCase();
+            return masterUsers.value.filter(u => (u.email || '').toLowerCase().includes(query));
+        });
+
         const allBranchesSelected = computed(() =>
             filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
         );
@@ -1236,6 +1246,11 @@ const app = createApp({
                 masterProducts.value = productRes.data || [];
                 prItems.value = itemRes.data || [];
                 masterPics.value = picRes.data || [];
+
+                if (userRole.value === 'Master') {
+                    const { data: userRolesData } = await supabaseClient.from('user_roles').select('*').order('email');
+                    masterUsers.value = userRolesData || [];
+                }
 
                 if (userRole.value === 'AM' || userRole.value === 'Master') {
                     await expireOverduePRs();
@@ -1836,6 +1851,32 @@ const app = createApp({
         const toggleSelectAllPics = () => {
             selectedPicIds.value = allPicsSelected.value ? [] : filteredPics.value.map(p => p.id);
         };
+        const startEditUser = (u) => {
+            editingBranchId.value = null;
+            editingProductId.value = null;
+            editingPicId.value = null;
+            editingUserId.value = u.id;
+            editUserForm.value = { role: u.role || '', brand: u.brand || '' };
+        };
+        const cancelEditUser = () => { editingUserId.value = null; };
+        const saveEditUser = async (id) => {
+            if (!editUserForm.value.role) { toast('Pilih role dulu ya.', 'warn'); return; }
+            const { error } = await supabaseClient
+                .from('user_roles')
+                .update({
+                    role: editUserForm.value.role,
+                    brand: editUserForm.value.role === 'Master' ? null : (editUserForm.value.brand || null)
+                })
+                .eq('id', id);
+            if (error) {
+                toast('Gagal simpan: ' + error.message, 'error');
+                return;
+            }
+            editingUserId.value = null;
+            toast('Role/brand user berhasil diupdate!', 'success');
+            fetchData();
+        };
+
         const startEditPic = (p) => {
             editingBranchId.value = null;
             editingProductId.value = null;
@@ -1945,6 +1986,7 @@ const app = createApp({
             editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
+            masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }

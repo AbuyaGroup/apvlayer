@@ -442,7 +442,7 @@
                     <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
                     <h2 style="margin-bottom: 24px;">Master Data - User</h2>
                     <div class="row">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); overflow: visible;">
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">Buat Akun Baru</p>
                                 <div class="field" style="margin-bottom: 12px;">
@@ -473,6 +473,50 @@
                                 <button type="button" class="btn-primary w-100" @click="$refs.userFileInput.click()">
                                     <i class="bi bi-upload me-1"></i> Upload Excel
                                 </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari email..." v-model="userSearchQuery">
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th>ID</th><th>Email</th><th>Role</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <template v-for="u in filteredUsers" :key="u.id">
+
+                                            <tr v-if="editingUserId === u.id">
+                                                <td style="color: var(--muted);">{{ u.id }}</td>
+                                                <td class="fw-bold">{{ u.email }}</td>
+                                                <td>
+                                                    <searchable-select v-model="editUserForm.role" :options="ROLE_SELECT_OPTIONS" placeholder="-- Role --"></searchable-select>
+                                                </td>
+                                                <td>
+                                                    <searchable-select v-if="editUserForm.role !== 'Master'" v-model="editUserForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="-- Brand --"></searchable-select>
+                                                    <span v-else style="color: var(--muted);">-</span>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditUser(u.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditUser" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td style="color: var(--muted);">{{ u.id }}</td>
+                                                <td class="fw-bold">{{ u.email }}</td>
+                                                <td>{{ u.role }}</td>
+                                                <td>{{ u.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditUser(u)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredUsers.length === 0"><td colspan="5" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada user yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
