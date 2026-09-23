@@ -54,6 +54,16 @@ serve(async (req) => {
         const email = String(username).includes('@') ? String(username) : `${username}@abuyagroup.com`
         const finalBrand = role === 'Master' ? null : (brand || null)
 
+        const { data: existingRole } = await adminClient
+            .from('user_roles')
+            .select('email')
+            .ilike('email', email)
+            .maybeSingle()
+
+        if (existingRole) {
+            return jsonResponse({ error: `Username "${username}" udah dipake, gak boleh nimpa akun yang udah ada.` }, 400)
+        }
+
         const { error: createError } = await adminClient.auth.admin.createUser({
             email,
             password: String(password),
@@ -65,7 +75,7 @@ serve(async (req) => {
 
         const { error: roleError } = await adminClient
             .from('user_roles')
-            .upsert({ email, role, brand: finalBrand }, { onConflict: 'email' })
+            .insert({ email, role, brand: finalBrand })
 
         if (roleError) {
             return jsonResponse({ error: 'Akun dibuat tapi gagal set role: ' + roleError.message }, 400)

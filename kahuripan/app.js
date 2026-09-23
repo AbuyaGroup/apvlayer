@@ -1851,7 +1851,16 @@ const app = createApp({
         const toggleSelectAllPics = () => {
             selectedPicIds.value = allPicsSelected.value ? [] : filteredPics.value.map(p => p.id);
         };
+        const isSelfUserRow = (u) => {
+            const selfUsername = (userEmail.value || '').toLowerCase();
+            const rowUsername = (u.email || '').split('@')[0].toLowerCase();
+            return !!selfUsername && rowUsername === selfUsername;
+        };
         const startEditUser = (u) => {
+            if (isSelfUserRow(u)) {
+                toast('Gak bisa edit role akun sendiri lewat sini.', 'warn');
+                return;
+            }
             editingBranchId.value = null;
             editingProductId.value = null;
             editingPicId.value = null;
@@ -1860,6 +1869,12 @@ const app = createApp({
         };
         const cancelEditUser = () => { editingUserId.value = null; };
         const saveEditUser = async (id) => {
+            const target = masterUsers.value.find(u => u.id === id);
+            if (target && isSelfUserRow(target)) {
+                toast('Gak bisa edit role akun sendiri lewat sini.', 'warn');
+                editingUserId.value = null;
+                return;
+            }
             if (!editUserForm.value.role) { toast('Pilih role dulu ya.', 'warn'); return; }
             const { error } = await supabaseClient
                 .from('user_roles')
@@ -1986,7 +2001,7 @@ const app = createApp({
             editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
-            masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser,
+            masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser, isSelfUserRow,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }

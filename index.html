@@ -510,7 +510,7 @@
                                                 <td>{{ u.role }}</td>
                                                 <td>{{ u.brand || 'Semua Brand' }}</td>
                                                 <td style="text-align:right; white-space:nowrap;">
-                                                    <button class="btn-icon" @click="startEditUser(u)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon" @click="startEditUser(u)" :disabled="isSelfUserRow(u)" :title="isSelfUserRow(u) ? 'Gak bisa edit akun sendiri' : 'Edit'" :style="isSelfUserRow(u) ? 'opacity:.4; cursor:not-allowed;' : ''"><i class="bi bi-pencil"></i></button>
                                                 </td>
                                             </tr>
                                         </template>
