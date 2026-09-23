@@ -480,15 +480,24 @@
                                 <i class="bi bi-search"></i>
                                 <input type="text" placeholder="Cari email..." v-model="userSearchQuery">
                             </div>
+                            <div v-if="selectedUserIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedUserIds.length }} akun dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedUserIds = []">Batal</button>
+                                    <button class="btn-danger-solid" :disabled="isDeletingUsers" @click="deleteUsers(selectedUserIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
                             <div class="produk-table-wrap table-scroll">
                                 <table class="produk-table">
                                     <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allUsersSelected" @change="toggleSelectAllUsers"></th>
                                         <th>ID</th><th>Email</th><th>Role</th><th>Brand</th><th style="text-align:right;">Aksi</th>
                                     </tr></thead>
                                     <tbody>
                                         <template v-for="u in filteredUsers" :key="u.id">
 
                                             <tr v-if="editingUserId === u.id">
+                                                <td></td>
                                                 <td style="color: var(--muted);">{{ u.id }}</td>
                                                 <td class="fw-bold">{{ u.email }}</td>
                                                 <td>
@@ -505,16 +514,20 @@
                                             </tr>
 
                                             <tr v-else>
+                                                <td>
+                                                    <input type="checkbox" :checked="selectedUserIds.includes(u.id)" :disabled="isSelfUserRow(u)" @change="toggleUserSelect(u.id)">
+                                                </td>
                                                 <td style="color: var(--muted);">{{ u.id }}</td>
                                                 <td class="fw-bold">{{ u.email }}</td>
                                                 <td>{{ u.role }}</td>
                                                 <td>{{ u.brand || 'Semua Brand' }}</td>
                                                 <td style="text-align:right; white-space:nowrap;">
                                                     <button class="btn-icon" @click="startEditUser(u)" :disabled="isSelfUserRow(u)" :title="isSelfUserRow(u) ? 'Gak bisa edit akun sendiri' : 'Edit'" :style="isSelfUserRow(u) ? 'opacity:.4; cursor:not-allowed;' : ''"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteUsers([u.id])" :disabled="isSelfUserRow(u)" :title="isSelfUserRow(u) ? 'Gak bisa hapus akun sendiri' : 'Hapus'" :style="isSelfUserRow(u) ? 'opacity:.4; cursor:not-allowed;' : ''"><i class="bi bi-trash3"></i></button>
                                                 </td>
                                             </tr>
                                         </template>
-                                        <tr v-if="filteredUsers.length === 0"><td colspan="5" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada user yang cocok.</td></tr>
+                                        <tr v-if="filteredUsers.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada user yang cocok.</td></tr>
                                     </tbody>
                                 </table>
                             </div>

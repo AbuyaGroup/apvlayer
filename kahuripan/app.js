@@ -37,6 +37,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const CREATE_USER_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/create-user`;
+const DELETE_USER_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/delete-user`;
 
 async function generateNumber(prefix) {
     const { data, error } = await supabaseClient.rpc('generate_doc_number', { p_prefix: prefix });
@@ -883,6 +884,8 @@ const app = createApp({
         const isCreatingUser = ref(false);
         const editingUserId = ref(null);
         const editUserForm = ref({ role: '', brand: '' });
+        const selectedUserIds = ref([]);
+        const isDeletingUsers = ref(false);
 
         const activeBrand = computed(() => userBrand.value || selectedBrand.value || null);
 
@@ -1118,6 +1121,16 @@ const app = createApp({
             return masterUsers.value.filter(u => (u.email || '').toLowerCase().includes(query));
         });
 
+        const isSelfUserRow = (u) => {
+            const selfUsername = (userEmail.value || '').toLowerCase();
+            const rowUsername = (u.email || '').split('@')[0].toLowerCase();
+            return !!selfUsername && rowUsername === selfUsername;
+        };
+
+        const selectableFilteredUserIds = computed(() =>
+            filteredUsers.value.filter(u => !isSelfUserRow(u)).map(u => u.id)
+        );
+
         const allBranchesSelected = computed(() =>
             filteredBranches.value.length > 0 && selectedBranchIds.value.length === filteredBranches.value.length
         );
@@ -1126,6 +1139,9 @@ const app = createApp({
         );
         const allPicsSelected = computed(() =>
             filteredPics.value.length > 0 && selectedPicIds.value.length === filteredPics.value.length
+        );
+        const allUsersSelected = computed(() =>
+            selectableFilteredUserIds.value.length > 0 && selectedUserIds.value.length === selectableFilteredUserIds.value.length
         );
 
         const picOptions = computed(() => {
@@ -1851,11 +1867,60 @@ const app = createApp({
         const toggleSelectAllPics = () => {
             selectedPicIds.value = allPicsSelected.value ? [] : filteredPics.value.map(p => p.id);
         };
-        const isSelfUserRow = (u) => {
-            const selfUsername = (userEmail.value || '').toLowerCase();
-            const rowUsername = (u.email || '').split('@')[0].toLowerCase();
-            return !!selfUsername && rowUsername === selfUsername;
+
+        const toggleUserSelect = (id) => {
+            const idx = selectedUserIds.value.indexOf(id);
+            if (idx === -1) selectedUserIds.value.push(id);
+            else selectedUserIds.value.splice(idx, 1);
         };
+        const toggleSelectAllUsers = () => {
+            selectedUserIds.value = allUsersSelected.value ? [] : [...selectableFilteredUserIds.value];
+        };
+        const deleteUsers = async (ids) => {
+            if (ids.length === 0) return;
+            if (!(await confirmDialog(`Yakin mau hapus ${ids.length} akun ini? Akun bakal ke-hapus permanen (gak bisa login lagi). Gak bisa di-undo.`, { danger: true, confirmLabel: 'Ya, Hapus' }))) return;
+
+            isDeletingUsers.value = true;
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.access_token) {
+                    toast('Sesi login gak valid, coba login ulang.', 'error');
+                    return;
+                }
+
+                const res = await fetch(DELETE_USER_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ ids })
+                });
+
+                const result = await res.json();
+
+                if (!res.ok || result.error) {
+                    toast('Gagal hapus: ' + (result.error || 'Unknown error'), 'error');
+                    return;
+                }
+
+                if (result.deleted?.length > 0) toast(`${result.deleted.length} akun berhasil dihapus.`, 'success');
+                if (result.failed?.length > 0) {
+                    console.error('Gagal hapus sebagian akun:', result.failed);
+                    toast(`${result.failed.length} akun gagal dihapus. Cek console buat detail.`, 'error');
+                }
+
+                selectedUserIds.value = [];
+                fetchData();
+            } catch (err) {
+                console.error(err);
+                toast('Gagal terhubung ke server buat hapus akun.', 'error');
+            } finally {
+                isDeletingUsers.value = false;
+            }
+        };
+
         const startEditUser = (u) => {
             if (isSelfUserRow(u)) {
                 toast('Gak bisa edit role akun sendiri lewat sini.', 'warn');
@@ -2002,6 +2067,7 @@ const app = createApp({
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
             masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser, isSelfUserRow,
+            selectedUserIds, allUsersSelected, toggleUserSelect, toggleSelectAllUsers, deleteUsers, isDeletingUsers,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
     }
