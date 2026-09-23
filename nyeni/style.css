@@ -269,10 +269,10 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 
 .screen-enter-active { transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .screen-leave-active { transition: opacity 0.4s cubic-bezier(0.4, 0, 1, 1), transform 0.4s cubic-bezier(0.4, 0, 1, 1), filter 0.4s cubic-bezier(0.4, 0, 1, 1); }
-.screen-enter-from { opacity: 0; transform: scale(1.02); }
+.screen-enter-from { opacity: 0; transform: scale(1); }
 .screen-enter-to { opacity: 1; transform: scale(1); }
 .screen-leave-from { opacity: 1; transform: scale(1); filter: blur(0px); }
-.screen-leave-to { opacity: 0; transform: scale(0.97); filter: blur(6px); }
+.screen-leave-to { opacity: 0; transform: scale(1); filter: blur(6px); }
 
 .table-scroll{ max-height: 460px; overflow-y: auto; overscroll-behavior: contain; }
 .table-scroll thead th{ position: sticky; top: 0; z-index: 1; }
