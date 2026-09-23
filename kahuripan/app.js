@@ -1656,6 +1656,11 @@ const app = createApp({
                     const brand = brandCol ? String(row[brandCol] ?? '').trim() : '';
 
                     if (!username || !password || !role) continue;
+                    if (role !== 'Master' && !brand) {
+                        failed++;
+                        errors.push(`${username}: kolom Brand kosong, wajib diisi buat role selain Master.`);
+                        continue;
+                    }
 
                     try {
                         const res = await fetch(CREATE_USER_FUNCTION_URL, {
@@ -2094,6 +2099,7 @@ const app = createApp({
                 return;
             }
             if (!editUserForm.value.role) { toast('Pilih role dulu ya.', 'warn'); return; }
+            if (editUserForm.value.role !== 'Master' && !editUserForm.value.brand) { toast('Pilih brand dulu ya.', 'warn'); return; }
             const { error } = await supabaseClient
                 .from('user_roles')
                 .update({
