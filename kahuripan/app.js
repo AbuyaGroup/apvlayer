@@ -456,6 +456,7 @@ const BRAND_SELECT_OPTIONS = [
 const ROLE_SELECT_OPTIONS = [
     { value: 'SM', label: 'SM (Store Manager)' },
     { value: 'AM', label: 'AM (Area Manager)' },
+    { value: 'PIC', label: 'PIC' },
     { value: 'Master', label: 'Master Layer' }
 ];
 
@@ -890,7 +891,9 @@ const app = createApp({
             editFormItemProductId.value = '';
             editFormItemQty.value = null;
         };
+        const canCreatePR = computed(() => userRole.value !== 'PIC');
         const openBuatPR = () => {
+            if (!canCreatePR.value) { toast('Role PIC gak bisa bikin Purchase Request.', 'warn'); return; }
             resetPRForm();
             currentTab.value = 'buat-pr';
         };
@@ -2333,7 +2336,7 @@ const app = createApp({
             masterBranches, masterProducts, masterPics, brandBranches, brandProducts, branchOptions, productOptions, STATUS_OPTIONS,
             SHIPPING_CATEGORY_OPTIONS, shippingCategoryOptions, picOptions, PIC_SHIPPING_SELECT_OPTIONS, BRAND_SELECT_OPTIONS, newItemProductId, newItemQty, addFormItem, removeFormItem, openBuatPR, cancelBuatPR,
             editingFormItemIdx, editFormItemProductId, editFormItemQty, startEditFormItem, cancelEditFormItem, saveEditFormItem,
-            editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR,
+            editingPR, editPRNewItemProductId, editPRNewItemQty, editPRItems, canEditPR, canCreatePR,
             openEditPR, goToEditPR, backFromEditPR, addItemToEditingPR, updateEditingPRItemQty, removeItemFromEditingPR,
             viewingPO, viewingPOItems, openViewPO, backFromViewPO, exportPOExcel, exportAllPOExcel,
             branchSearchQuery, filteredBranches, productSearchQuery, filteredProducts, picSearchQuery, filteredPics,

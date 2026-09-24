@@ -77,7 +77,7 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                             <date-range-filter v-model="prDateRange"></date-range-filter>
-                            <button class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i></button>
+                            <button v-if="canCreatePR" class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i></button>
                         </div>
                     </div>
                     <div class="produk-table-wrap table-scroll">
