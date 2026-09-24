@@ -1,0 +1,380 @@
+<transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'master-hub'" key="master-hub">
+                    <h2 style="margin-bottom: 5px;">Master Data</h2>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Kelola data master untuk Branch, Product, dan PIC di sini.</p>
+
+                    <div class="dc-grid" style="max-width: 800px;">
+                        <div class="dc-card" @click="currentTab = 'master-branch'">
+                            <div class="dc-icon"><i class="bi bi-shop"></i></div>
+                            <h3 class="name">Master Branch</h3>
+                        </div>
+                        <div class="dc-card" @click="currentTab = 'master-product'">
+                            <div class="dc-icon" style="background: var(--warn-soft);"><i class="bi bi-box-seam" style="color: var(--warn);"></i></div>
+                            <h3 class="name">Master Product</h3>
+                        </div>
+                        <div class="dc-card" @click="currentTab = 'master-pic'">
+                            <div class="dc-icon" style="background: var(--success-soft);"><i class="bi bi-person-badge" style="color: var(--success);"></i></div>
+                            <h3 class="name">Master PIC</h3>
+                        </div>
+                        <div class="dc-card" @click="currentTab = 'master-user'">
+                            <div class="dc-icon" style="background: var(--primary-soft);"><i class="bi bi-person-plus-fill" style="color: var(--primary);"></i></div>
+                            <h3 class="name">Master User</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-branch'" key="master-branch">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - Branch</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah cabang cuma lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Branch Name</b> (wajib), <b>Branch Code</b> (opsional).</p>
+                                <input type="file" ref="branchFileInput" @change="handleFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.branchFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama cabang..." v-model="branchSearchQuery">
+                            </div>
+                            <div v-if="selectedBranchIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedBranchIds.length }} cabang dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedBranchIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deleteBranches(selectedBranchIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allBranchesSelected" @change="toggleSelectAllBranches"></th>
+                                        <th>ID</th><th>Nama Cabang</th><th>Kode</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody v-if="isLoading || isSyncing">
+                                        <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                            <td v-for="c in 6" :key="c"><div class="skel-bar"></div></td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody v-else>
+                                        <template v-for="b in filteredBranches" :key="b.id">
+
+                                            <tr v-if="editingBranchId === b.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ b.id }}</td>
+                                                <td><input type="text" v-model="editBranchForm.branch_name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td><input type="text" v-model="editBranchForm.branch_code" style="padding:6px 8px; font-size:13px; width:90px;"></td>
+                                                <td>
+                                                    <select v-model="editBranchForm.brand" style="padding:6px 8px; font-size:13px;">
+                                                        <option value="">Semua Brand</option>
+                                                        <option value="Kebuli Abuya">Kebuli Abuya</option>
+                                                        <option value="Almaz Fried Chicken">Almaz Fried Chicken</option>
+                                                    </select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditBranch(b.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditBranch" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedBranchIds.includes(b.id)" @change="toggleBranchSelect(b.id)"></td>
+                                                <td style="color: var(--muted);">{{ b.id }}</td>
+                                                <td class="fw-bold">{{ b.branch_name }}</td>
+                                                <td>{{ b.branch_code }}</td>
+                                                <td>{{ b.brand || '-' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditBranch(b)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteBranches([b.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredBranches.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada cabang yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-product'" key="master-product">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - Product</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah produk cuma lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Product Name</b> (wajib), <b>Unit</b> (opsional, misal pcs/Carton/kg), <b>Brand</b> (opsional -- kosongin kalo produk berlaku buat semua brand).</p>
+                                <input type="file" ref="productFileInput" @change="handleProductFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.productFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama produk..." v-model="productSearchQuery">
+                            </div>
+                            <div v-if="selectedProductIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedProductIds.length }} produk dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedProductIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deleteProducts(selectedProductIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allProductsSelected" @change="toggleSelectAllProducts"></th>
+                                        <th>ID</th><th>Nama Produk / Barang</th><th>Unit</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody v-if="isLoading || isSyncing">
+                                        <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                            <td v-for="c in 6" :key="c"><div class="skel-bar"></div></td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody v-else>
+                                        <template v-for="p in filteredProducts" :key="p.id">
+
+                                            <tr v-if="editingProductId === p.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td><input type="text" v-model="editProductForm.name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td><input type="text" v-model="editProductForm.unit" style="padding:6px 8px; font-size:13px; width:90px;"></td>
+                                                <td>
+                                                    <select v-model="editProductForm.brand" style="padding:6px 8px; font-size:13px;">
+                                                        <option value="">Semua Brand</option>
+                                                        <option value="Kebuli Abuya">Kebuli Abuya</option>
+                                                        <option value="Almaz Fried Chicken">Almaz Fried Chicken</option>
+                                                    </select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditProduct(p.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditProduct" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedProductIds.includes(p.id)" @change="toggleProductSelect(p.id)"></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td class="fw-bold">{{ p.name }}</td>
+                                                <td>{{ p.unit || '-' }}</td>
+                                                <td>{{ p.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditProduct(p)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteProducts([p.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredProducts.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada produk yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-pic'" key="master-pic">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - PIC</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); margin-bottom: 20px; overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New PIC</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>PIC</label>
+                                    <input type="text" v-model="addPicForm.pic_name" placeholder="Nama PIC">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Shipping</label>
+                                    <searchable-select v-model="addPicForm.shipping" :options="PIC_SHIPPING_SELECT_OPTIONS" placeholder="-- Pilih Shipping --"></searchable-select>
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="addPicForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="Semua Brand"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="addPic">
+                                    <i class="bi bi-plus-lg me-1"></i> Tambah PIC
+                                </button>
+                            </div>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah PIC lewat upload Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>PIC</b> (wajib), <b>SHIPPING</b> (opsional), <b>BRAND</b> (opsional -- kosongin kalo PIC berlaku buat semua brand).</p>
+                                <input type="file" ref="picFileInput" @change="handlePicFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.picFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari nama PIC..." v-model="picSearchQuery">
+                            </div>
+                            <div v-if="selectedPicIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedPicIds.length }} PIC dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedPicIds = []">Batal</button>
+                                    <button class="btn-danger-solid" @click="deletePics(selectedPicIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allPicsSelected" @change="toggleSelectAllPics"></th>
+                                        <th>ID</th><th>PIC</th><th>Shipping</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody v-if="isLoading || isSyncing">
+                                        <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                            <td v-for="c in 6" :key="c"><div class="skel-bar"></div></td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody v-else>
+                                        <template v-for="p in filteredPics" :key="p.id">
+
+                                            <tr v-if="editingPicId === p.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td><input type="text" v-model="editPicForm.pic_name" style="padding:6px 8px; font-size:13px;"></td>
+                                                <td>
+                                                    <searchable-select v-model="editPicForm.shipping" :options="PIC_SHIPPING_SELECT_OPTIONS" placeholder="-"></searchable-select>
+                                                </td>
+                                                <td>
+                                                    <searchable-select v-model="editPicForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="Semua Brand"></searchable-select>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditPic(p.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditPic" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td><input type="checkbox" :checked="selectedPicIds.includes(p.id)" @change="togglePicSelect(p.id)"></td>
+                                                <td style="color: var(--muted);">{{ p.id }}</td>
+                                                <td class="fw-bold">{{ p.pic_name }}</td>
+                                                <td>{{ p.shipping || '-' }}</td>
+                                                <td>{{ p.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditPic(p)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deletePics([p.id])" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredPics.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada PIC yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else key="master-user">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 24px;">Master Data - User</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">Buat Akun Baru</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Username</label>
+                                    <input type="text" v-model="newUserForm.username">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Password</label>
+                                    <input type="text" v-model="newUserForm.password">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Role</label>
+                                    <searchable-select v-model="newUserForm.role" :options="ROLE_SELECT_OPTIONS" placeholder="-- Pilih Role --"></searchable-select>
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;" v-if="newUserForm.role && newUserForm.role !== 'Master'">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="newUserForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="-- Pilih Brand --"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="createNewUser" :disabled="isCreatingUser">
+                                    <i class="bi bi-person-plus me-1"></i> {{ isCreatingUser ? 'Membuat...' : 'Buat Akun' }}
+                                </button>
+                            </div>
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center; margin-top: 20px;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Buat banyak akun sekaligus lewat Excel</p>
+                                <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Username</b> (wajib), <b>Password</b> (wajib), <b>Role</b> (wajib -- SM/AM/Master), <b>Brand</b> (opsional -- kosongin kalo Master).</p>
+                                <input type="file" ref="userFileInput" @change="handleUserFileUpload" accept=".xlsx, .xls" style="display: none;">
+                                <button type="button" class="btn-primary w-100" @click="$refs.userFileInput.click()">
+                                    <i class="bi bi-upload me-1"></i> Upload Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="search-box mb-3">
+                                <i class="bi bi-search"></i>
+                                <input type="text" placeholder="Cari email..." v-model="userSearchQuery">
+                            </div>
+                            <div v-if="selectedUserIds.length > 0" class="bulk-bar">
+                                <span>{{ selectedUserIds.length }} akun dipilih</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn-ghost" style="padding:6px 12px; font-size:12.5px;" @click="selectedUserIds = []">Batal</button>
+                                    <button class="btn-danger-solid" :disabled="isDeletingUsers" @click="deleteUsers(selectedUserIds)"><i class="bi bi-trash3 me-1"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                            <div class="produk-table-wrap table-scroll">
+                                <table class="produk-table">
+                                    <thead><tr>
+                                        <th style="width:36px;"><input type="checkbox" :checked="allUsersSelected" @change="toggleSelectAllUsers"></th>
+                                        <th>ID</th><th>Email</th><th>Role</th><th>Brand</th><th style="text-align:right;">Aksi</th>
+                                    </tr></thead>
+                                    <tbody v-if="isLoading || isSyncing">
+                                        <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                            <td v-for="c in 6" :key="c"><div class="skel-bar"></div></td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody v-else>
+                                        <template v-for="u in filteredUsers" :key="u.id">
+
+                                            <tr v-if="editingUserId === u.id">
+                                                <td></td>
+                                                <td style="color: var(--muted);">{{ u.id }}</td>
+                                                <td class="fw-bold">{{ u.email }}</td>
+                                                <td>
+                                                    <searchable-select v-model="editUserForm.role" :options="ROLE_SELECT_OPTIONS" placeholder="-- Role --"></searchable-select>
+                                                </td>
+                                                <td>
+                                                    <searchable-select v-if="editUserForm.role !== 'Master'" v-model="editUserForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="-- Brand --"></searchable-select>
+                                                    <span v-else style="color: var(--muted);">-</span>
+                                                </td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon success" @click="saveEditUser(u.id)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn-icon" @click="cancelEditUser" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            </tr>
+
+                                            <tr v-else>
+                                                <td>
+                                                    <input type="checkbox" :checked="selectedUserIds.includes(u.id)" :disabled="isSelfUserRow(u)" @change="toggleUserSelect(u.id)">
+                                                </td>
+                                                <td style="color: var(--muted);">{{ u.id }}</td>
+                                                <td class="fw-bold">{{ u.email }}</td>
+                                                <td>{{ u.role }}</td>
+                                                <td>{{ u.brand || 'Semua Brand' }}</td>
+                                                <td style="text-align:right; white-space:nowrap;">
+                                                    <button class="btn-icon" @click="startEditUser(u)" :disabled="isSelfUserRow(u)" :title="isSelfUserRow(u) ? 'Gak bisa edit akun sendiri' : 'Edit'" :style="isSelfUserRow(u) ? 'opacity:.4; cursor:not-allowed;' : ''"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn-icon danger" @click="deleteUsers([u.id])" :disabled="isSelfUserRow(u)" :title="isSelfUserRow(u) ? 'Gak bisa hapus akun sendiri' : 'Hapus'" :style="isSelfUserRow(u) ? 'opacity:.4; cursor:not-allowed;' : ''"><i class="bi bi-trash3"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr v-if="filteredUsers.length === 0"><td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada user yang cocok.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+</transition>

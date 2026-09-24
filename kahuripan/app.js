@@ -1,4 +1,4 @@
-const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick, provide, inject, defineAsyncComponent } = Vue;
 
 const toasts = ref([]);
 let toastSeq = 0;
@@ -518,6 +518,38 @@ const stickyrollDirective = {
     }
 };
 
+const fragmentCache = {};
+function loadFragment(url) {
+    if (!fragmentCache[url]) {
+        fragmentCache[url] = fetch(url).then(res => res.text()).then(html => ({
+            render: Vue.compile(html),
+            setup() {
+                return { ...inject('appCtx') };
+            }
+        }));
+    }
+    return fragmentCache[url];
+}
+const SECTION_COMPONENTS = {
+    'dashboard': defineAsyncComponent(() => loadFragment('/dashboard.html')),
+    'purchase-request': defineAsyncComponent(() => loadFragment('/purchase-request.html')),
+    'purchase-order': defineAsyncComponent(() => loadFragment('/purchase-order.html')),
+    'master-data': defineAsyncComponent(() => loadFragment('/master-data.html'))
+};
+const TAB_TO_SECTION = {
+    'dashboard': 'dashboard',
+    'daftar-pr': 'purchase-request',
+    'buat-pr': 'purchase-request',
+    'edit-pr': 'purchase-request',
+    'daftar-po': 'purchase-order',
+    'view-po': 'purchase-order',
+    'master-hub': 'master-data',
+    'master-branch': 'master-data',
+    'master-product': 'master-data',
+    'master-pic': 'master-data',
+    'master-user': 'master-data'
+};
+
 const app = createApp({
     setup() {
 
@@ -782,24 +814,40 @@ const app = createApp({
         const userBranchCode = ref(null);
 
         const currentTab = ref('dashboard');
+        const currentSection = computed(() => TAB_TO_SECTION[currentTab.value] || 'dashboard');
 
         const SIDEBAR_TABS = ['dashboard', 'daftar-pr', 'daftar-po', 'master-hub'];
 
-        const tabFromHash = () => {
-            const h = (window.location.hash || '').replace('#', '');
-            return SIDEBAR_TABS.includes(h) ? h : null;
+        const ROUTE_META = {
+            'dashboard': { path: '/dashboard', title: 'Dashboard' },
+            'daftar-pr': { path: '/purchase-request', title: 'Purchase Request' },
+            'buat-pr': { path: '/purchase-request/baru', title: 'Buat Purchase Request' },
+            'daftar-po': { path: '/purchase-order', title: 'Purchase Order' },
+            'master-hub': { path: '/master-data', title: 'Master Data' },
+            'master-branch': { path: '/master-data/branch', title: 'Master Data - Branch' },
+            'master-product': { path: '/master-data/product', title: 'Master Data - Product' },
+            'master-pic': { path: '/master-data/pic', title: 'Master Data - PIC' },
+            'master-user': { path: '/master-data/user', title: 'Master Data - User' }
+        };
+        const PATH_TO_TAB = {
+            '/dashboard': 'dashboard',
+            '/purchase-request': 'daftar-pr',
+            '/purchase-order': 'daftar-po',
+            '/master-data': 'master-hub'
+        };
+
+        const tabFromPath = () => {
+            const tab = PATH_TO_TAB[window.location.pathname || '/'];
+            return SIDEBAR_TABS.includes(tab) ? tab : null;
         };
         watch(currentTab, (val) => {
             try { localStorage.setItem('lastActiveTab', val); } catch (e) {}
-            try {
-                if (SIDEBAR_TABS.includes(val)) history.replaceState(null, '', '#' + val);
-            } catch (e) {}
         });
         const restoreLastTab = (role) => {
             try {
-                const hashTab = tabFromHash();
-                if (hashTab && (hashTab !== 'master-hub' || role === 'Master')) {
-                    currentTab.value = hashTab;
+                const pathTab = tabFromPath();
+                if (pathTab && (pathTab !== 'master-hub' || role === 'Master')) {
+                    currentTab.value = pathTab;
                     return;
                 }
                 const saved = localStorage.getItem('lastActiveTab');
@@ -937,6 +985,27 @@ const app = createApp({
         const viewingPOItems = computed(() => viewingPO.value ? (itemsByPrId.value[viewingPO.value.pr_id] || []) : []);
         const openViewPO = (po) => { viewingPOId.value = po.id; currentTab.value = 'view-po'; };
         const backFromViewPO = () => { viewingPOId.value = null; currentTab.value = 'daftar-po'; };
+
+        const computeRoute = () => {
+            if (!isLoggedIn.value) return { path: '/login', title: 'Login' };
+            if (userRole.value === 'Master' && !selectedBrand.value) return { path: '/pilih-brand', title: 'Pilih Brand' };
+            if (currentTab.value === 'edit-pr' && editingPRId.value) {
+                return { path: '/purchase-request/' + editingPRId.value, title: 'Detail Purchase Request' };
+            }
+            if (currentTab.value === 'view-po' && viewingPOId.value) {
+                return { path: '/purchase-order/' + viewingPOId.value, title: 'Detail Purchase Order' };
+            }
+            return ROUTE_META[currentTab.value] || ROUTE_META['dashboard'];
+        };
+        const applyRoute = () => {
+            if (appBooting.value) return;
+            const { path, title } = computeRoute();
+            document.title = title + ' - MASAR';
+            try {
+                if (window.location.pathname !== path) history.replaceState(null, '', path);
+            } catch (e) {}
+        };
+        watch([isLoggedIn, userRole, selectedBrand, currentTab, editingPRId, viewingPOId, appBooting], applyRoute, { immediate: true });
 
         const PO_EXPORT_HEADERS = ['Purchase Date', 'Required Date', 'PO Number', 'PR Number', 'Branch', 'Product Name', 'Unit', 'Purchase Qty', 'Shipping', 'PIC', 'Notes', 'PO Created By'];
         const PO_EXPORT_COLS = [
@@ -1791,8 +1860,6 @@ const app = createApp({
             editPRNewItemProductId.value = '';
             editPRNewItemQty.value = null;
             currentTab.value = 'edit-pr';
-
-            try { history.replaceState(null, '', '#edit-pr/' + pr.id); } catch (e) {}
         };
         const backFromEditPR = () => {
             editingPRId.value = null;
@@ -1805,12 +1872,20 @@ const app = createApp({
             openEditPR(pr);
         };
 
-        const tryOpenPRFromHash = () => {
-            const h = (window.location.hash || '').replace('#', '');
-            const m = h.match(/^edit-pr\/(\d+)$/);
+        const tryOpenPRFromPath = () => {
+            const pathname = window.location.pathname || '';
+            const m = pathname.match(/^\/purchase-request\/(\d+)$/);
             if (!m) return false;
             const pr = prs.value.find(p => p.id === Number(m[1]));
             if (pr) { openEditPR(pr); return true; }
+            return false;
+        };
+        const tryOpenPOFromPath = () => {
+            const pathname = window.location.pathname || '';
+            const m = pathname.match(/^\/purchase-order\/(\d+)$/);
+            if (!m) return false;
+            const po = pos.value.find(p => p.id === Number(m[1]));
+            if (po) { openViewPO(po); return true; }
             return false;
         };
 
@@ -2224,22 +2299,25 @@ const app = createApp({
                 isLoading.value = false;
                 startRealtimeSync();
 
-                tryOpenPRFromHash();
+                tryOpenPRFromPath();
+                tryOpenPOFromPath();
             } else {
                 appBooting.value = false;
             }
 
-            window.addEventListener('hashchange', () => {
+            window.addEventListener('popstate', () => {
                 if (!isLoggedIn.value) return;
-                if (tryOpenPRFromHash()) return;
-                const hashTab = tabFromHash();
-                if (hashTab && (hashTab !== 'master-hub' || userRole.value === 'Master')) {
-                    currentTab.value = hashTab;
+                if (tryOpenPRFromPath()) return;
+                if (tryOpenPOFromPath()) return;
+                const pathTab = tabFromPath();
+                if (pathTab && (pathTab !== 'master-hub' || userRole.value === 'Master')) {
+                    currentTab.value = pathTab;
                 }
             });
         });
 
-        return {
+        const ctx = {
+            sectionComponents: SECTION_COMPONENTS, currentSection,
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, appBooting, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             isSyncing,
@@ -2271,6 +2349,8 @@ const app = createApp({
             selectedUserIds, allUsersSelected, toggleUserSelect, toggleSelectAllUsers, deleteUsers, isDeletingUsers,
             formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
         };
+        provide('appCtx', ctx);
+        return ctx;
     }
 })
     .component('searchable-select', SearchableSelect)

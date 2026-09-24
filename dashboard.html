@@ -1,0 +1,111 @@
+<div>
+                    <div class="dash-header-row">
+                        <h2>Dashboard Overview</h2>
+                        <div class="dash-header-filters">
+                            <div style="min-width:350px;"><multi-select v-model="dashBranchFilter" :options="branchOptions" placeholder="All Branch"></multi-select></div>
+                            <date-range-filter v-model="dashDateRange"></date-range-filter>
+                        </div>
+                    </div>
+
+                    <template v-if="isLoading || isSyncing">
+                        <div class="dash-donut-card">
+                            <div class="skel-dash-donut"></div>
+                            <div class="dash-status-grid">
+                                <div class="skel-dash-box" v-for="n in 3" :key="n"></div>
+                            </div>
+                        </div>
+                        <div class="dash-section-card">
+                            <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Expiring Purchase Requests</div>
+                            <div class="skel-dash-list-row" v-for="n in 4" :key="n"><div class="skel-bar"></div><div class="skel-bar"></div></div>
+                        </div>
+                        <div class="dash-top-items-grid">
+                            <div class="dash-section-card">
+                                <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
+                                <div class="skel-dash-list-row" v-for="n in 4" :key="n"><div class="skel-bar"></div><div class="skel-bar"></div></div>
+                            </div>
+                            <div class="dash-section-card">
+                                <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
+                                <div class="skel-dash-list-row" v-for="n in 4" :key="n"><div class="skel-bar"></div><div class="skel-bar"></div></div>
+                            </div>
+                        </div>
+                    </template>
+                    <template v-else>
+                    <div class="dash-donut-card">
+                        <div class="dash-donut-wrap">
+                            <svg viewBox="0 0 200 200" class="dash-donut-svg">
+                                <g transform="rotate(-90 100 100)">
+                                    <circle v-if="donutTotal === 0" cx="100" cy="100" r="70" fill="none" stroke="#e5ebf4" stroke-width="26"></circle>
+                                    <circle v-for="seg in donutSegments" :key="seg.key" cx="100" cy="100" r="70" fill="none"
+                                        :stroke="seg.color" stroke-width="26" :stroke-dasharray="seg.dashArray" :stroke-dashoffset="seg.dashOffset"></circle>
+                                </g>
+                                <text x="100" y="96" text-anchor="middle" class="dash-donut-total-num">{{ donutTotal }}</text>
+                                <text x="100" y="117" text-anchor="middle" class="dash-donut-total-label">Total Request</text>
+                                <line v-for="seg in donutLabelSegments" :key="'line-' + seg.key"
+                                    :x1="seg.lineX1" :y1="seg.lineY1" :x2="seg.lineX2" :y2="seg.lineY2"
+                                    :stroke="seg.color" stroke-width="1.5" class="dash-donut-leader"></line>
+                                <text v-for="seg in donutLabelSegments" :key="'label-' + seg.key"
+                                    :x="seg.labelX" :y="seg.labelY" text-anchor="middle" class="dash-donut-pct" :fill="seg.color">{{ Math.round(seg.pct) }}%</text>
+                            </svg>
+                        </div>
+                        <div class="dash-status-grid">
+                            <div v-for="seg in donutSegments" :key="'box-' + seg.key" class="dash-status-box" :style="{ background: seg.bg }">
+                                <div class="dash-status-dot" :style="{ background: seg.soft }"></div>
+                                <div>
+                                    <div class="dash-status-count">{{ seg.count }}</div>
+                                    <div class="dash-status-label">{{ seg.label }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-section-card">
+                        <div class="dash-section-title"><i class="bi bi-bell-fill"></i> Expiring Purchase Requests</div>
+                        <div v-if="expiringSoonPRs.length === 0" class="dash-empty-note">Gak ada PR yang mau Expired besok.</div>
+                        <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': expiringSoonPRs.length > 5 }" v-stickyroll="expiringSoonPRs.length > 5">
+                            <div class="dash-notif-list stickyroll-track">
+                                <div v-for="pr in expiringSoonPRs" :key="pr.id" class="dash-notif-row" @click="openEditPR(pr)">
+                                    <div>
+                                        <div class="dash-notif-pr">{{ pr.pr_number }}</div>
+                                        <div class="dash-notif-branch">{{ pr.branch_name }}</div>
+                                    </div>
+                                    <i class="bi bi-chevron-right"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-top-items-grid">
+                        <div class="dash-section-card">
+                            <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
+                            <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }" v-stickyroll="topItemsByPOCount.length > 5">
+                                <div class="dash-top-item-list stickyroll-track">
+                                    <div v-for="(it, idx) in topItemsByPOCount" :key="it.item_name" class="dash-top-item-row">
+                                        <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                        <div class="dash-top-item-info">
+                                            <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                        </div>
+                                        <div class="dash-top-item-count">{{ it.count }}x</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dash-section-card">
+                            <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
+                            <div v-if="topItemsByQtyCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
+                            <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }" v-stickyroll="topItemsByQtyCount.length > 5">
+                                <div class="dash-top-item-list stickyroll-track">
+                                    <div v-for="(it, idx) in topItemsByQtyCount" :key="it.item_name" class="dash-top-item-row">
+                                        <div class="dash-top-item-rank">{{ idx + 1 }}</div>
+                                        <div class="dash-top-item-info">
+                                            <div class="dash-top-item-name">{{ it.item_name }}</div>
+                                        </div>
+                                        <div class="dash-top-item-count">{{ it.qty }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </template>
+                </div>

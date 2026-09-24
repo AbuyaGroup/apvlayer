@@ -1,0 +1,171 @@
+<transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'buat-pr'" key="buat-pr">
+                    <h2 style="margin-bottom: 24px;">Create Purchase Request</h2>
+                    <div class="pr-form-card">
+                        <form @submit.prevent="submitPR">
+                            <div class="pr-form-grid">
+                                <div class="field field-branch-wide"><label>Branch Name</label>
+                                    <searchable-select v-model="form.branch_name" :options="branchOptions" placeholder="-- Pilih Cabang --" :searchable="true"></searchable-select>
+                                </div>
+                                <div class="field"><label>Required Date</label><date-picker-field v-model="form.required_date"></date-picker-field></div>
+                                <div class="field field-fit-content"><label>Shipping Category</label>
+                                    <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
+                                </div>
+                                <div class="field" v-if="form.shipping_category"><label>PIC</label>
+                                    <searchable-select v-model="form.pic" :options="picOptions" placeholder="-- Pilih PIC --"></searchable-select>
+                                </div>
+                            </div>
+
+                            <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Nama Barang</label>
+                            <div class="pr-item-adder">
+                                <div class="field" style="margin-bottom:0;">
+                                    <searchable-select v-model="newItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
+                                </div>
+                                <div class="field qty-field" style="margin-bottom:0;">
+                                    <input type="number" v-model.number="newItemQty" min="1" placeholder="Jumlah">
+                                </div>
+                                <button type="button" class="btn-primary" @click="addFormItem"><i class="bi bi-plus-lg"></i></button>
+                            </div>
+
+                            <div class="pr-item-list">
+                                <div v-if="form.items.length === 0" class="pr-item-empty">Belum ada item ditambahkan.</div>
+                                <template v-for="(it, idx) in form.items" :key="it.product_id">
+
+                                    <div v-if="editingFormItemIdx === idx" class="pr-item-row pr-item-row-edit">
+                                        <div class="field" style="margin-bottom:0; flex:1 1 auto;">
+                                            <searchable-select v-model="editFormItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
+                                        </div>
+                                        <div class="field qty-field" style="margin-bottom:0;">
+                                            <input type="number" v-model.number="editFormItemQty" min="1" placeholder="Jumlah">
+                                        </div>
+                                        <button type="button" class="btn-icon success" @click="saveEditFormItem(idx)" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                        <button type="button" class="btn-icon" @click="cancelEditFormItem" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+
+                                    <div v-else class="pr-item-row">
+                                        <div><span class="item-name">{{ it.item_name }}</span><span class="item-qty">x{{ it.qty }}</span></div>
+                                        <div style="display:flex; gap:6px;">
+                                            <button type="button" class="btn-icon" @click="startEditFormItem(idx)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                            <button type="button" class="btn-icon danger" @click="removeFormItem(idx)" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="field"><label>Notes</label><textarea v-model="form.notes" rows="3"></textarea></div>
+                            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+                                <button type="button" class="btn-ghost" @click="cancelBuatPR">Cancel</button>
+                                <button type="submit" class="btn-primary">Submit Request</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'daftar-pr'" key="daftar-pr">
+                    <h2 style="margin-bottom: 24px;">Purchase Request</h2>
+                    <div class="produk-toolbar">
+                        <div class="produk-toolbar-search">
+                            <div style="min-width: 140px;"><searchable-select v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="All Status"></searchable-select></div>
+                            <div style="min-width: 140px;"><searchable-select v-model="prFilterShipping" :options="SHIPPING_FILTER_OPTIONS" placeholder="All Shipping"></searchable-select></div>
+                            <div class="search-combo">
+                                <div style="min-width: 160px;"><searchable-select v-model="prSearchField" :options="PR_SEARCH_FIELDS"></searchable-select></div>
+                                <div v-if="prSearchField === 'branch_name'" class="search-combo-branch">
+                                    <multi-select v-model="prBranchFilter" :options="branchOptions" placeholder="Select Branch"></multi-select>
+                                </div>
+                                <div v-else class="search-box"><i class="bi bi-search"></i><input type="text" :placeholder="'Search ' + prSearchFieldLabel + '...'" v-model="searchQuery"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <date-range-filter v-model="prDateRange"></date-range-filter>
+                            <button class="btn-primary" @click="openBuatPR"><i class="bi bi-plus-lg me-1"></i></button>
+                        </div>
+                    </div>
+                    <div class="produk-table-wrap table-scroll">
+                        <table class="produk-table">
+                            <thead><tr>
+                                <th class="sortable-th" @click="toggleSortPR('pr_number')">Request Number <i v-if="prSortField === 'pr_number'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('branch_name')">Branch Name <i v-if="prSortField === 'branch_name'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('shipping_category')">Shipping <i v-if="prSortField === 'shipping_category'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('pic')">PIC <i v-if="prSortField === 'pic'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('required_date')">Required Date <i v-if="prSortField === 'required_date'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('status')">Status <i v-if="prSortField === 'status'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th style="text-align: right;">Action</th>
+                            </tr></thead>
+                            <tbody v-if="isLoading || isSyncing">
+                                <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                    <td v-for="c in 7" :key="c"><div class="skel-bar"></div></td>
+                                </tr>
+                            </tbody>
+                            <tbody v-else>
+                                <tr v-for="pr in filteredPRs" :key="pr.id">
+                                    <td style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--primary);">{{ pr.pr_number }}</td>
+                                    <td>{{ pr.branch_name }}</td>
+                                    <td>{{ pr.shipping_category || '-' }}</td>
+                                    <td>{{ pr.pic || '-' }}</td>
+                                    <td style="color: var(--danger);">{{ formatDate(pr.required_date) }}</td>
+                                    <td><span class="status-badge" :class="pr.status.toLowerCase()">{{ pr.status }}</span></td>
+                                    <td style="text-align: right;">
+                                        <a :href="'/purchase-request/' + pr.id" @click="goToEditPR($event, pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;">
+                                            <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
+                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? '' : '' }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr v-if="filteredPRs.length === 0"><td colspan="7" style="text-align:center; color: var(--muted); padding: 24px;">Belum ada Purchase Request.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'edit-pr' && editingPR" key="edit-pr">
+                    <button class="btn-ghost mb-4" @click="backFromEditPR" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 4px;">Detail Purchase Request</h2>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px; font-family: 'IBM Plex Mono', monospace;">{{ editingPR.pr_number }}</p>
+
+                    <div class="pr-form-card">
+                        <div class="pr-detail-grid">
+                            <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
+                            <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
+                            <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
+                            <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
+                            <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
+                            <div style="grid-column: 1 / -1;"><div class="pr-detail-label">Notes</div><div class="pr-detail-value" style="font-weight:500;">{{ editingPR.notes || '-' }}</div></div>
+                        </div>
+
+                        <div class="pr-info-box">
+                            <div class="pr-info-title"><i class="bi bi-info-circle"></i> Information</div>
+                            <div class="pr-info-row"><span>Dibuat</span><span>{{ formatDateTime(editingPR.created_at) }} oleh {{ editingPR.created_by || '-' }}</span></div>
+                            <div class="pr-info-row" v-if="editingPR.updated_at"><span>Terakhir diedit</span><span>{{ formatDateTime(editingPR.updated_at) }} oleh {{ editingPR.updated_by || '-' }}</span></div>
+                        </div>
+
+                        <label style="color:#586882; font-size:12px; letter-spacing:.03em; text-transform:uppercase; margin-bottom:8px; display:block; font-weight:600;">Item Barang</label>
+
+                        <div v-if="canEditPR" class="pr-item-adder">
+                            <div class="field" style="margin-bottom:0;">
+                                <searchable-select v-model="editPRNewItemProductId" :options="productOptions" placeholder="-- Pilih Barang --" :searchable="true"></searchable-select>
+                            </div>
+                            <div class="field qty-field" style="margin-bottom:0;">
+                                <input type="number" v-model.number="editPRNewItemQty" min="1" placeholder="Jumlah">
+                            </div>
+                            <button type="button" class="btn-primary" @click="addItemToEditingPR"><i class="bi bi-plus-lg"></i></button>
+                        </div>
+
+                        <div class="pr-item-list">
+                            <div v-if="editPRItems.length === 0" class="pr-item-empty">Belum ada item.</div>
+                            <div v-for="it in editPRItems" :key="it.id" class="pr-item-row">
+                                <span class="item-name">{{ it.item_name }}</span>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <input v-if="canEditPR" type="number" min="1" v-model.number="it.qty" @change="updateEditingPRItemQty(it)" style="width:80px; padding:6px 8px; font-size:13px;">
+                                    <span v-else class="item-qty">x{{ it.qty }}</span>
+                                    <button v-if="canEditPR" type="button" class="btn-icon danger" @click="removeItemFromEditingPR(it.id)" title="Hapus"><i class="bi bi-trash3"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="canEditPR" style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
+                            <button type="button" class="btn-danger-solid" @click="rejectPR(editingPR.id)"><i class="bi bi-x-lg me-1"></i> Reject</button>
+                            <button type="button" class="btn-primary" @click="approvePR(editingPR.id)"><i class="bi bi-check-lg me-1"></i> Approve</button>
+                        </div>
+                    </div>
+                </div>
+</transition>
