@@ -741,6 +741,7 @@ const app = createApp({
             userEmail.value = '';
             userRole.value = '';
             userBrand.value = null;
+            userBranchCode.value = null;
             selectedBrand.value = '';
             loginForm.value = { email: '', password: '' };
             editingPRId.value = null;
@@ -777,6 +778,8 @@ const app = createApp({
             selectedBrand.value = '';
             try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
         };
+
+        const userBranchCode = ref(null);
 
         const currentTab = ref('dashboard');
 
@@ -1296,7 +1299,13 @@ const app = createApp({
         const brandBranches = brandManagedBranches;
         const brandProducts = brandManagedProducts;
 
-        const branchOptions = computed(() => brandBranches.value.map(b => ({ value: b.branch_name, label: b.branch_name })));
+        const branchOptions = computed(() => {
+            let list = brandBranches.value;
+            if (userRole.value === 'SM' && userBranchCode.value) {
+                list = list.filter(b => (b.branch_code || '').toLowerCase() === userBranchCode.value.toLowerCase());
+            }
+            return list.map(b => ({ value: b.branch_name, label: b.branch_name }));
+        });
         const productOptions = computed(() => brandProducts.value.map(p => ({
             value: p.id,
             label: p.unit ? `${p.name} (${p.unit})` : p.name
@@ -1324,6 +1333,16 @@ const app = createApp({
                 .maybeSingle();
             if (error) console.error('Gagal ambil role:', error);
             return { role: data?.role || 'SM', brand: data?.brand ?? null };
+        };
+
+        const fetchBranchCode = async (email) => {
+            const { data, error } = await supabaseClient
+                .from('branch_access')
+                .select('branch_code')
+                .ilike('email', email)
+                .maybeSingle();
+            if (error) console.error('Gagal ambil branch access:', error);
+            return data?.branch_code ?? null;
         };
 
         const handleLogin = async () => {
@@ -1365,6 +1384,7 @@ const app = createApp({
                 userEmail.value = usernameInput;
                 userRole.value = role;
                 userBrand.value = brand;
+                userBranchCode.value = role === 'SM' ? await fetchBranchCode(fullEmail) : null;
                 if (brand) {
                     selectedBrand.value = brand;
                 }
@@ -2187,6 +2207,7 @@ const app = createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
+                userBranchCode.value = role === 'SM' ? await fetchBranchCode(session.user.email) : null;
                 if (brand) {
                     selectedBrand.value = brand;
                 } else {
@@ -2222,7 +2243,7 @@ const app = createApp({
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, appBooting, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             isSyncing,
-            selectedBrand, userBrand, activeBrand, chooseBrand, backToBrandPicker,
+            selectedBrand, userBrand, userBranchCode, activeBrand, chooseBrand, backToBrandPicker,
             currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,
