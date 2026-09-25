@@ -780,6 +780,7 @@ const app = createApp({
             editingPRId.value = null;
             viewingPOId.value = null;
             currentTab.value = 'dashboard';
+            mobileSidebarOpen.value = false;
         };
 
         const expireSessionDueToIdle = async () => {
@@ -859,10 +860,12 @@ const app = createApp({
             } catch (e) {}
         };
 
+        const mobileSidebarOpen = ref(false);
         const goToTab = (e, tab) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             currentTab.value = tab;
+            mobileSidebarOpen.value = false;
         };
         const prs = ref([]);
         const pos = ref([]);
@@ -2325,7 +2328,7 @@ const app = createApp({
             isLoggedIn, appBooting, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             isSyncing,
             selectedBrand, userBrand, userBranchCode, activeBrand, chooseBrand, backToBrandPicker,
-            currentTab, goToTab, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
+            currentTab, goToTab, mobileSidebarOpen, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,
             prFilterShipping, poFilterShipping, SHIPPING_FILTER_OPTIONS,

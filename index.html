@@ -160,10 +160,16 @@
 
     <div v-else class="d-flex-layout" key="screen-dashboard">
 
-        <div class="sidebar">
+        <button type="button" class="sidebar-toggle" @click="mobileSidebarOpen = true" title="Menu">
+            <i class="bi bi-list"></i>
+        </button>
+        <div v-if="mobileSidebarOpen" class="sidebar-backdrop" @click="mobileSidebarOpen = false"></div>
+
+        <div class="sidebar" :class="{ 'sidebar-open': mobileSidebarOpen }">
             <div class="sidebar-brand">
                 <div class="mark"><i class="bi bi-box-seam"></i></div>
                 <span>MASAR</span>
+                <button type="button" class="sidebar-close" @click="mobileSidebarOpen = false" title="Tutup"><i class="bi bi-x-lg"></i></button>
             </div>
 
             <div class="user-profile">
