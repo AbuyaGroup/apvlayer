@@ -160,7 +160,7 @@
 
     <div v-else class="d-flex-layout" key="screen-dashboard">
 
-        <button type="button" class="sidebar-toggle" @click="mobileSidebarOpen = true" title="Menu">
+        <button v-if="!mobileSidebarOpen" type="button" class="sidebar-toggle" @click="mobileSidebarOpen = true" title="Menu">
             <i class="bi bi-list"></i>
         </button>
         <div v-if="mobileSidebarOpen" class="sidebar-backdrop" @click="mobileSidebarOpen = false"></div>

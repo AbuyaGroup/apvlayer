@@ -532,10 +532,10 @@ function loadFragment(url) {
     return fragmentCache[url];
 }
 const SECTION_COMPONENTS = {
-    'dashboard': defineAsyncComponent(() => loadFragment('/dashboard.html')),
-    'purchase-request': defineAsyncComponent(() => loadFragment('/purchase-request.html')),
-    'purchase-order': defineAsyncComponent(() => loadFragment('/purchase-order.html')),
-    'master-data': defineAsyncComponent(() => loadFragment('/master-data.html'))
+    'dashboard': defineAsyncComponent(() => loadFragment('/fragments/dashboard.html')),
+    'purchase-request': defineAsyncComponent(() => loadFragment('/fragments/purchase-request.html')),
+    'purchase-order': defineAsyncComponent(() => loadFragment('/fragments/purchase-order.html')),
+    'master-data': defineAsyncComponent(() => loadFragment('/fragments/master-data.html'))
 };
 const TAB_TO_SECTION = {
     'dashboard': 'dashboard',

@@ -506,4 +506,8 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
     .dash-status-grid{ grid-template-columns:1fr; }
     .dash-donut-card{ padding:20px; }
     .produk-toolbar{ padding:14px; }
+    .pr-form-card{ padding:18px; }
+    .pr-item-adder > button{ margin-top:0; }
+    .login-card{ padding:32px 22px; }
+    .dc-grid{ grid-template-columns:1fr; }
 }
