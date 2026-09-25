@@ -71,6 +71,7 @@
         </div>
     </Transition>
 
+    <template v-if="!appBooting">
     <Transition name="screen" mode="out-in">
     <div v-if="!isLoggedIn" id="loginScreen" key="screen-login">
         <div class="login-visual">
@@ -203,6 +204,7 @@
         </div>
     </div>
     </Transition>
+    </template>
 </div>
 
 <script src="/kahuripan/app.js"></script>
