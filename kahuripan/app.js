@@ -341,10 +341,10 @@ const DateRangeFilter = {
     },
     emits: ['update:modelValue'],
     template: `
-        <div class="date-range-filter" ref="wrapEl">
+        <div class="date-range-filter" ref="wrapEl" @click="openPicker">
             <i class="bi bi-calendar3"></i>
             <input type="text" ref="inputEl" :placeholder="placeholder" readonly>
-            <button v-if="modelValue.from || modelValue.to" type="button" class="drf-clear" @click="clearRange" title="Hapus filter tanggal">
+            <button v-if="modelValue.from || modelValue.to" type="button" class="drf-clear" @click.stop="clearRange" title="Hapus filter tanggal">
                 <i class="bi bi-x-circle-fill"></i>
             </button>
         </div>
@@ -353,6 +353,7 @@ const DateRangeFilter = {
         const inputEl = ref(null);
         const wrapEl = ref(null);
         let fp = null;
+        const openPicker = () => { if (fp) fp.open(); };
 
         onMounted(() => {
             fp = flatpickr(inputEl.value, {
@@ -380,7 +381,7 @@ const DateRangeFilter = {
             emit('update:modelValue', { from: '', to: '' });
         };
 
-        return { inputEl, wrapEl, clearRange };
+        return { inputEl, wrapEl, openPicker, clearRange };
     }
 };
 
@@ -392,7 +393,7 @@ const DatePickerField = {
     },
     emits: ['update:modelValue'],
     template: `
-        <div class="date-picker-field" ref="wrapEl">
+        <div class="date-picker-field" ref="wrapEl" @click="openPicker">
             <i class="bi bi-calendar3"></i>
             <input type="text" ref="inputEl" :placeholder="placeholder" readonly>
         </div>
@@ -401,6 +402,7 @@ const DatePickerField = {
         const inputEl = ref(null);
         const wrapEl = ref(null);
         let fp = null;
+        const openPicker = () => { if (fp) fp.open(); };
 
         onMounted(() => {
             fp = flatpickr(inputEl.value, {
@@ -419,7 +421,7 @@ const DatePickerField = {
         });
         onUnmounted(() => { if (fp) fp.destroy(); });
 
-        return { inputEl, wrapEl };
+        return { inputEl, wrapEl, openPicker };
     }
 };
 
