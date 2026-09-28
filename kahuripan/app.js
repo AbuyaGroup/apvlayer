@@ -460,6 +460,7 @@ const BRAND_SELECT_OPTIONS = [
 const ROLE_SELECT_OPTIONS = [
     { value: 'SM', label: 'SM (Store Manager)' },
     { value: 'AM', label: 'AM (Area Manager)' },
+    { value: 'AMKA', label: 'AMKA (AM Kebuli Abuya)' },
     { value: 'PIC', label: 'PIC' },
     { value: 'Master', label: 'Master Layer' }
 ];
@@ -987,7 +988,7 @@ const app = createApp({
 
         const editPRItems = computed(() => editingPR.value ? (itemsByPrId.value[editingPR.value.id] || []) : []);
         const canEditPR = computed(() =>
-            !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'Master')
+            !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'AMKA' || userRole.value === 'Master')
         );
 
         const viewingPOId = ref(null);
@@ -1865,6 +1866,67 @@ const app = createApp({
             }
         };
 
+        const submitPRAsApproved = async () => {
+            if (!form.value.branch_name) { toast('Pilih cabang dulu ya.', 'warn'); return; }
+            if (!form.value.required_date) { toast('Pilih Required Date dulu ya.', 'warn'); return; }
+            if (!form.value.shipping_category) { toast('Pilih kategori pengiriman dulu ya.', 'warn'); return; }
+            if (!form.value.pic) { toast('Pilih PIC dulu ya.', 'warn'); return; }
+            if (form.value.items.length === 0) { toast('Tambahkan minimal 1 item barang dulu ya.', 'warn'); return; }
+            try {
+
+                const matchedBranch = masterBranches.value.find(b => b.branch_name === form.value.branch_name);
+                const prBrand = matchedBranch?.brand || deriveBrandFromBranchName(form.value.branch_name);
+
+                const prNumber = await generateNumber('PR');
+
+                const { data: newPR, error } = await supabaseClient.from('purchase_requests').insert({
+                    pr_number: prNumber,
+                    branch_name: form.value.branch_name,
+                    shipping_category: form.value.shipping_category,
+                    pic: form.value.pic || null,
+                    required_date: form.value.required_date || null,
+                    notes: form.value.notes,
+                    brand: prBrand,
+                    status: 'Approved',
+                    created_by: userEmail.value
+                }).select().single();
+
+                if (error) {
+                    toast('Gagal simpan PR: ' + error.message, 'error');
+                    return;
+                }
+
+                const itemsPayload = form.value.items.map(it => ({
+                    pr_id: newPR.id,
+                    item_name: it.item_name,
+                    qty: it.qty
+                }));
+                const { error: itemsError } = await supabaseClient.from('purchase_request_items').insert(itemsPayload);
+                if (itemsError) {
+                    toast('PR kebikin, tapi gagal simpan item-nya: ' + itemsError.message, 'error');
+                    return;
+                }
+
+                try {
+                    const poNumber = await generateNumber('PO');
+                    const { error: poError } = await supabaseClient.from('purchase_orders').insert({
+                        po_number: poNumber,
+                        pr_id: newPR.id,
+                        created_by: userEmail.value
+                    });
+                    if (poError) toast('PR kesimpen, tapi gagal bikin PO: ' + poError.message, 'error');
+                } catch (err) {
+                    toast('PR kesimpen, tapi gagal bikin PO: ' + err.message, 'error');
+                }
+
+                resetPRForm();
+                await fetchData();
+                currentTab.value = 'daftar-pr';
+            } catch (err) {
+                toast('Gagal simpan PR', 'error');
+            }
+        };
+
         const openEditPR = (pr) => {
             editingPRId.value = pr.id;
             editPRNewItemProductId.value = '';
@@ -1904,6 +1966,13 @@ const app = createApp({
                 updated_at: new Date().toISOString(),
                 updated_by: userEmail.value
             }).eq('id', prId);
+        };
+
+        const saveEditingPRAsDraft = async () => {
+            if (editingPR.value) await touchPR(editingPR.value.id);
+            editingPRId.value = null;
+            currentTab.value = 'daftar-pr';
+            await fetchData();
         };
 
         const addItemToEditingPR = async () => {
@@ -2357,7 +2426,7 @@ const app = createApp({
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
             masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser, isSelfUserRow,
             selectedUserIds, allUsersSelected, toggleUserSelect, toggleSelectAllUsers, deleteUsers, isDeletingUsers,
-            formatRp, formatDate, formatDateTime, submitPR, approvePR, rejectPR
+            formatRp, formatDate, formatDateTime, submitPR, submitPRAsApproved, saveEditingPRAsDraft, approvePR, rejectPR
         };
         provide('appCtx', ctx);
         return ctx;

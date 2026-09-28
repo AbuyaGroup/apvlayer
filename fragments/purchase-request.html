@@ -55,7 +55,11 @@
                             <div class="field"><label>Notes</label><textarea v-model="form.notes" rows="3"></textarea></div>
                             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
                                 <button type="button" class="btn-ghost" @click="cancelBuatPR">Cancel</button>
-                                <button type="submit" class="btn-primary">Submit Request</button>
+                                <template v-if="userRole === 'AMKA'">
+                                    <button type="button" class="btn-ghost" @click="submitPR">Save as Draft</button>
+                                    <button type="button" class="btn-primary" @click="submitPRAsApproved">Save</button>
+                                </template>
+                                <button v-else type="submit" class="btn-primary">Submit Request</button>
                             </div>
                         </form>
                     </div>
@@ -162,7 +166,12 @@
                             </div>
                         </div>
 
-                        <div v-if="canEditPR" style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
+                        <div v-if="canEditPR && userRole === 'AMKA'" style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
+                            <button type="button" class="btn-ghost" @click="backFromEditPR">Cancel</button>
+                            <button type="button" class="btn-ghost" @click="saveEditingPRAsDraft">Save as Draft</button>
+                            <button type="button" class="btn-primary" @click="approvePR(editingPR.id)"><i class="bi bi-check-lg me-1"></i> Save</button>
+                        </div>
+                        <div v-else-if="canEditPR" style="display:flex; gap:12px; justify-content:flex-end; margin-top:30px;">
                             <button type="button" class="btn-danger-solid" @click="rejectPR(editingPR.id)"><i class="bi bi-x-lg me-1"></i> Reject</button>
                             <button type="button" class="btn-primary" @click="approvePR(editingPR.id)"><i class="bi bi-check-lg me-1"></i> Approve</button>
                         </div>
