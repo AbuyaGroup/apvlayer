@@ -23,7 +23,7 @@
                                 <th class="sortable-th" @click="toggleSortPO('po_number')">PO Number <i v-if="poSortField === 'po_number'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('branch_name')">Branch Name <i v-if="poSortField === 'branch_name'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('shipping_category')">Shipping <i v-if="poSortField === 'shipping_category'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
-                                <th class="sortable-th" @click="toggleSortPO('pic')">PIC <i v-if="poSortField === 'pic'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPO('pic')">PIC Final<i v-if="poSortField === 'pic'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPO('created_at')">Release Date <i v-if="poSortField === 'created_at'" class="bi" :class="poSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th style="text-align: right;">Action</th>
                             </tr></thead>

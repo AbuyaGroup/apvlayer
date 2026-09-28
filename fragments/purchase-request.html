@@ -11,7 +11,7 @@
                                 <div class="field field-fit-content"><label>Shipping Category</label>
                                     <searchable-select v-model="form.shipping_category" :options="shippingCategoryOptions" placeholder="-- Pilih Kategori --"></searchable-select>
                                 </div>
-                                <div class="field" v-if="form.shipping_category"><label>PIC</label>
+                                <div class="field" v-if="form.shipping_category"><label>PIC Final</label>
                                     <searchable-select v-model="form.pic" :options="picOptions" placeholder="-- Pilih PIC --"></searchable-select>
                                 </div>
                             </div>
@@ -86,7 +86,7 @@
                                 <th class="sortable-th" @click="toggleSortPR('pr_number')">Request Number <i v-if="prSortField === 'pr_number'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPR('branch_name')">Branch Name <i v-if="prSortField === 'branch_name'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPR('shipping_category')">Shipping <i v-if="prSortField === 'shipping_category'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
-                                <th class="sortable-th" @click="toggleSortPR('pic')">PIC <i v-if="prSortField === 'pic'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
+                                <th class="sortable-th" @click="toggleSortPR('pic')">PIC Final <i v-if="prSortField === 'pic'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPR('required_date')">Required Date <i v-if="prSortField === 'required_date'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th class="sortable-th" @click="toggleSortPR('status')">Status <i v-if="prSortField === 'status'" class="bi" :class="prSortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill'"></i></th>
                                 <th style="text-align: right;">Action</th>
