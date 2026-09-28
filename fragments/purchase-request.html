@@ -110,8 +110,8 @@
                                     <td><span class="status-badge" :class="pr.status.toLowerCase()">{{ pr.status }}</span></td>
                                     <td style="text-align: right;">
                                         <a :href="'/purchase-request/' + pr.id" @click="goToEditPR($event, pr)" class="btn-ghost" style="padding:6px 14px; font-size:12.5px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;">
-                                            <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
-                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'Master')) ? '' : '' }}
+                                            <i :class="(pr.status === 'Pending' && (userRole === 'AM' || userRole === 'AMKA' || userRole === 'Master')) ? 'bi bi-pencil' : 'bi bi-eye'"></i>
+                                            {{ (pr.status === 'Pending' && (userRole === 'AM' || userRole === 'AMKA' || userRole === 'Master')) ? '' : '' }}
                                         </a>
                                     </td>
                                 </tr>
