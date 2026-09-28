@@ -2017,13 +2017,17 @@ const app = createApp({
         const approvePR = async (id) => {
             if (!(await confirmDialog('Approve PR ini dan rilis PO?', { confirmLabel: 'Ya, Approve' }))) return;
 
-            const { error: updateError } = await supabaseClient.from('purchase_requests').update({
+            const { data: updatedRows, error: updateError } = await supabaseClient.from('purchase_requests').update({
                 status: 'Approved',
                 updated_at: new Date().toISOString(),
                 updated_by: userEmail.value
-            }).eq('id', id);
+            }).eq('id', id).select();
             if (updateError) {
                 toast('Gagal approve PR: ' + updateError.message, 'error');
+                return;
+            }
+            if (!updatedRows || updatedRows.length === 0) {
+                toast('Gagal approve PR: role Antum gak punya akses buat ubah PR ini.', 'error');
                 return;
             }
 
@@ -2046,12 +2050,13 @@ const app = createApp({
 
         const rejectPR = async (id) => {
             if (!(await confirmDialog('Yakin mau menolak PR ini?', { danger: true, confirmLabel: 'Ya, Tolak' }))) return;
-            const { error } = await supabaseClient.from('purchase_requests').update({
+            const { data: updatedRows, error } = await supabaseClient.from('purchase_requests').update({
                 status: 'Rejected',
                 updated_at: new Date().toISOString(),
                 updated_by: userEmail.value
-            }).eq('id', id);
-            if (error) toast('Gagal menolak PR: ' + error.message, 'error');
+            }).eq('id', id).select();
+            if (error) { toast('Gagal menolak PR: ' + error.message, 'error'); return; }
+            if (!updatedRows || updatedRows.length === 0) { toast('Gagal menolak PR: role Antum gak punya akses buat ubah PR ini.', 'error'); return; }
             editingPRId.value = null;
             currentTab.value = 'daftar-pr';
             fetchData();
