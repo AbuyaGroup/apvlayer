@@ -126,7 +126,7 @@
                         <div class="pr-detail-grid">
                             <div><div class="pr-detail-label">Branch Name</div><div class="pr-detail-value">{{ editingPR.branch_name }}</div></div>
                             <div><div class="pr-detail-label">Shipping Category</div><div class="pr-detail-value">{{ editingPR.shipping_category || '-' }}</div></div>
-                            <div><div class="pr-detail-label">PIC</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
+                            <div><div class="pr-detail-label">PIC Final</div><div class="pr-detail-value">{{ editingPR.pic || '-' }}</div></div>
                             <div><div class="pr-detail-label">Required Date</div><div class="pr-detail-value">{{ formatDate(editingPR.required_date) }}</div></div>
                             <div><div class="pr-detail-label">Status</div><div class="pr-detail-value"><span class="status-badge" :class="editingPR.status.toLowerCase()">{{ editingPR.status }}</span></div></div>
                             <div style="grid-column: 1 / -1;"><div class="pr-detail-label">Notes</div><div class="pr-detail-value" style="font-weight:500;">{{ editingPR.notes || '-' }}</div></div>
