@@ -20,11 +20,11 @@
                         </div>
                         <div class="dash-top-items-grid">
                             <div class="dash-section-card">
-                                <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
+                                <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by count of Purchase Order</div>
                                 <div class="skel-dash-list-row" v-for="n in 4" :key="n"><div class="skel-bar"></div><div class="skel-bar"></div></div>
                             </div>
                             <div class="dash-section-card">
-                                <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
+                                <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by count of Quantity</div>
                                 <div class="skel-dash-list-row" v-for="n in 4" :key="n"><div class="skel-bar"></div><div class="skel-bar"></div></div>
                             </div>
                         </div>
@@ -76,7 +76,7 @@
 
                     <div class="dash-top-items-grid">
                         <div class="dash-section-card">
-                            <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by Purchase Order</div>
+                            <div class="dash-section-title"><i class="bi bi-bar-chart-fill"></i> Top Items by count of Purchase Order</div>
                             <div v-if="topItemsByPOCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
                             <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByPOCount.length > 5 }" v-stickyroll="topItemsByPOCount.length > 5">
                                 <div class="dash-top-item-list stickyroll-track">
@@ -92,7 +92,7 @@
                         </div>
 
                         <div class="dash-section-card">
-                            <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by Quantity</div>
+                            <div class="dash-section-title"><i class="bi bi-boxes"></i> Top Items by count of Quantity</div>
                             <div v-if="topItemsByQtyCount.length === 0" class="dash-empty-note">Belum ada data PO.</div>
                             <div v-else class="stickyroll-wrap" :class="{ 'stickyroll-active': topItemsByQtyCount.length > 5 }" v-stickyroll="topItemsByQtyCount.length > 5">
                                 <div class="dash-top-item-list stickyroll-track">
