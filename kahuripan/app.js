@@ -898,9 +898,9 @@ const app = createApp({
             editFormItemProductId.value = '';
             editFormItemQty.value = null;
         };
-        const canCreatePR = computed(() => userRole.value !== 'PIC');
+        const canCreatePR = computed(() => userRole.value !== 'PIC' && userRole.value !== 'AM');
         const openBuatPR = () => {
-            if (!canCreatePR.value) { toast('Role PIC gak bisa bikin Purchase Request.', 'warn'); return; }
+            if (!canCreatePR.value) { toast('Role ' + userRole.value + ' gak bisa bikin Purchase Request.', 'warn'); return; }
             resetPRForm();
             currentTab.value = 'buat-pr';
         };
