@@ -553,8 +553,11 @@ const TAB_TO_SECTION = {
     'master-branch': 'master-data',
     'master-product': 'master-data',
     'master-pic': 'master-data',
-    'master-user': 'master-data'
+    'master-user': 'master-data',
+    'master-mapping': 'master-data'
 };
+
+const BRANCH_SCOPED_ROLES = ['SM', 'AM', 'AMKA'];
 
 const app = createApp({
     setup() {
@@ -574,7 +577,7 @@ const app = createApp({
         let lastActivityAt = Date.now();
         const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
 
-        const REALTIME_TABLES = ['purchase_requests', 'purchase_request_items', 'purchase_orders', 'master_branches', 'master_products', 'master_pics', 'user_roles'];
+        const REALTIME_TABLES = ['purchase_requests', 'purchase_request_items', 'purchase_orders', 'master_branches', 'master_products', 'master_pics', 'user_roles', 'branch_access'];
         let realtimeChannel = null;
         let realtimeRefetchTimer = null;
         const isSyncing = ref(false);
@@ -779,7 +782,9 @@ const app = createApp({
             userEmail.value = '';
             userRole.value = '';
             userBrand.value = null;
-            userBranchCode.value = null;
+            userBranchCodes.value = [];
+            branchAccessRows.value = [];
+            editingMappingEmail.value = null;
             selectedBrand.value = '';
             loginForm.value = { email: '', password: '' };
             editingPRId.value = null;
@@ -818,7 +823,10 @@ const app = createApp({
             try { localStorage.removeItem('activeBrandChoice'); } catch (e) {}
         };
 
-        const userBranchCode = ref(null);
+        const userBranchCodes = ref([]);
+        const branchAccessRows = ref([]);
+        const isBranchScoped = computed(() => BRANCH_SCOPED_ROLES.includes(userRole.value));
+        const noBranchMapping = computed(() => isBranchScoped.value && userBranchCodes.value.length === 0);
 
         const currentTab = ref('dashboard');
         const currentSection = computed(() => TAB_TO_SECTION[currentTab.value] || 'dashboard');
@@ -834,7 +842,8 @@ const app = createApp({
             'master-branch': { path: '/master-data/branch', title: 'Master Data - Branch' },
             'master-product': { path: '/master-data/product', title: 'Master Data - Product' },
             'master-pic': { path: '/master-data/pic', title: 'Master Data - PIC' },
-            'master-user': { path: '/master-data/user', title: 'Master Data - User' }
+            'master-user': { path: '/master-data/user', title: 'Master Data - User' },
+            'master-mapping': { path: '/master-data/mapping', title: 'Master Data - Mapping Cabang' }
         };
         const PATH_TO_TAB = {
             '/dashboard': 'dashboard',
@@ -899,8 +908,9 @@ const app = createApp({
             editFormItemProductId.value = '';
             editFormItemQty.value = null;
         };
-        const canCreatePR = computed(() => userRole.value !== 'PIC' && userRole.value !== 'AM');
+        const canCreatePR = computed(() => userRole.value !== 'PIC' && userRole.value !== 'AM' && !noBranchMapping.value);
         const openBuatPR = () => {
+            if (noBranchMapping.value) { toast('Akun Antum belum punya mapping cabang. Hubungi Master ya.', 'warn'); return; }
             if (!canCreatePR.value) { toast('Role ' + userRole.value + ' gak bisa bikin Purchase Request.', 'warn'); return; }
             resetPRForm();
             currentTab.value = 'buat-pr';
@@ -988,7 +998,7 @@ const app = createApp({
 
         const editPRItems = computed(() => editingPR.value ? (itemsByPrId.value[editingPR.value.id] || []) : []);
         const canEditPR = computed(() =>
-            !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'AMKA' || userRole.value === 'Master')
+            !!editingPR.value && editingPR.value.status === 'Pending' && (userRole.value === 'AM' || userRole.value === 'AMKA' || userRole.value === 'Master') && canAccessBranch(editingPR.value.branch_name)
         );
 
         const viewingPOId = ref(null);
@@ -1122,13 +1132,23 @@ const app = createApp({
             return SHIPPING_CATEGORY_OPTIONS;
         });
 
+        const userBranchCodeSet = computed(() => new Set(userBranchCodes.value.map(c => String(c).toLowerCase())));
+        const userBranchNameSet = computed(() => new Set(
+            masterBranches.value
+                .filter(b => userBranchCodeSet.value.has(String(b.branch_code || '').toLowerCase()))
+                .map(b => b.branch_name)
+        ));
+        const canAccessBranch = (branchName) => !isBranchScoped.value || userBranchNameSet.value.has(branchName);
+
         const brandPRs = computed(() => {
-            if (!activeBrand.value) return prs.value;
-            return prs.value.filter(pr => pr.brand === activeBrand.value);
+            let list = activeBrand.value ? prs.value.filter(pr => pr.brand === activeBrand.value) : prs.value;
+            if (isBranchScoped.value) list = list.filter(pr => userBranchNameSet.value.has(pr.branch_name));
+            return list;
         });
         const brandPOs = computed(() => {
-            if (!activeBrand.value) return pos.value;
-            return pos.value.filter(po => po.purchase_requests?.brand === activeBrand.value);
+            let list = activeBrand.value ? pos.value.filter(po => po.purchase_requests?.brand === activeBrand.value) : pos.value;
+            if (isBranchScoped.value) list = list.filter(po => userBranchNameSet.value.has(po.purchase_requests?.branch_name));
+            return list;
         });
 
         const pendingPRs = computed(() => brandPRs.value.filter(pr => pr.status === 'Pending'));
@@ -1381,11 +1401,230 @@ const app = createApp({
 
         const branchOptions = computed(() => {
             let list = brandBranches.value;
-            if (userRole.value === 'SM' && userBranchCode.value) {
-                list = list.filter(b => (b.branch_code || '').toLowerCase() === userBranchCode.value.toLowerCase());
+            if (isBranchScoped.value) {
+                list = list.filter(b => userBranchCodeSet.value.has(String(b.branch_code || '').toLowerCase()));
             }
             return list.map(b => ({ value: b.branch_name, label: b.branch_name }));
         });
+
+        const mappingSearchQuery = ref('');
+        const editingMappingEmail = ref(null);
+        const editMappingCodes = ref([]);
+        const isSavingMapping = ref(false);
+
+        const mappingUsersAll = computed(() => masterUsers.value.filter(u =>
+            BRANCH_SCOPED_ROLES.includes(u.role) && (!activeBrand.value || !u.brand || u.brand === activeBrand.value)
+        ));
+
+        const mappingUsers = computed(() => {
+            if (!mappingSearchQuery.value) return mappingUsersAll.value;
+            const query = mappingSearchQuery.value.toLowerCase();
+            return mappingUsersAll.value.filter(u => (u.email || '').toLowerCase().includes(query));
+        });
+
+        const mappingBranchOptions = computed(() =>
+            brandBranches.value.filter(b => b.branch_code).map(b => ({ value: b.branch_code, label: b.branch_name }))
+        );
+
+        const mappedCodesFor = (email) => branchAccessRows.value
+            .filter(r => (r.email || '').toLowerCase() === (email || '').toLowerCase())
+            .map(r => r.branch_code);
+
+        const mappedBranchNamesFor = (email) => {
+            const codes = new Set(mappedCodesFor(email));
+            return masterBranches.value.filter(b => codes.has(b.branch_code)).map(b => b.branch_name);
+        };
+
+        const mappedCodesInBrandFor = (email) => {
+            const brandCodes = new Set(mappingBranchOptions.value.map(o => o.value));
+            return mappedCodesFor(email).filter(c => brandCodes.has(c));
+        };
+
+        const startEditMapping = (u) => {
+            editingMappingEmail.value = u.email;
+            editMappingCodes.value = mappedCodesInBrandFor(u.email);
+        };
+        const cancelEditMapping = () => {
+            editingMappingEmail.value = null;
+            editMappingCodes.value = [];
+        };
+
+        const saveMapping = async (u) => {
+            if (isSavingMapping.value) return;
+            isSavingMapping.value = true;
+            try {
+                const current = mappedCodesInBrandFor(u.email);
+                const selected = [...editMappingCodes.value];
+                const toRemove = current.filter(c => !selected.includes(c));
+                const toAdd = selected.filter(c => !current.includes(c));
+
+                if (toRemove.length) {
+                    const { data: removed, error } = await supabaseClient
+                        .from('branch_access')
+                        .delete()
+                        .eq('email', u.email)
+                        .in('branch_code', toRemove)
+                        .select();
+                    if (error) { toast('Gagal hapus mapping: ' + error.message, 'error'); return; }
+                    if (!removed || removed.length !== toRemove.length) { toast('Gagal hapus mapping: role Antum gak punya akses.', 'error'); return; }
+                }
+
+                if (toAdd.length) {
+                    const { error } = await supabaseClient
+                        .from('branch_access')
+                        .insert(toAdd.map(code => ({ email: u.email, branch_code: code })));
+                    if (error) { toast('Gagal simpan mapping: ' + error.message, 'error'); return; }
+                }
+
+                toast('Mapping cabang ' + (u.email || '').split('@')[0] + ' tersimpan.', 'success');
+                cancelEditMapping();
+                await fetchData();
+            } finally {
+                isSavingMapping.value = false;
+            }
+        };
+
+        const isImportingMapping = ref(false);
+        const usernameOf = (email) => (email || '').split('@')[0];
+        const mappingBrandSlug = () => (activeBrand.value || 'Semua_Brand').replace(/\s+/g, '_');
+
+        const addStyledSheet = (workbook, name, headers, widths, rows) => {
+            const ws = workbook.addWorksheet(name);
+            ws.columns = headers.map((header, i) => ({ header, width: widths[i] }));
+            ws.getRow(1).eachCell((cell) => {
+                cell.font = PO_EXPORT_HEADER_STYLE.font;
+                cell.fill = PO_EXPORT_HEADER_STYLE.fill;
+                cell.alignment = PO_EXPORT_HEADER_STYLE.alignment;
+                cell.border = PO_EXPORT_HEADER_STYLE.border;
+            });
+            rows.forEach(r => ws.addRow(r));
+            return ws;
+        };
+
+        const addMappingReferenceSheets = (workbook) => {
+            addStyledSheet(workbook, 'Referensi Cabang', ['Branch Code', 'Branch Name'], [14, 32],
+                mappingBranchOptions.value.map(o => [o.value, o.label]));
+            addStyledSheet(workbook, 'Referensi User', ['Username', 'Role', 'Brand'], [22, 10, 22],
+                mappingUsersAll.value.map(u => [usernameOf(u.email), u.role, u.brand || 'Semua Brand']));
+        };
+
+        const downloadMappingTemplate = async () => {
+            const workbook = new ExcelJS.Workbook();
+            addStyledSheet(workbook, 'Mapping', ['Username', 'Branch Code'], [22, 14], []);
+            addMappingReferenceSheets(workbook);
+            await downloadWorkbookBuffer(workbook, 'Template_Mapping_Cabang_' + mappingBrandSlug() + '.xlsx');
+        };
+
+        const exportMapping = async () => {
+            const branchNameByCode = new Map(brandBranches.value.map(b => [b.branch_code, b.branch_name]));
+            const rows = [];
+            [...mappingUsersAll.value]
+                .sort((a, b) => usernameOf(a.email).localeCompare(usernameOf(b.email)))
+                .forEach(u => {
+                    const brandLabel = u.brand || 'Semua Brand';
+                    const codes = mappedCodesInBrandFor(u.email);
+                    if (codes.length === 0) {
+                        rows.push([usernameOf(u.email), '', '', u.role, brandLabel]);
+                        return;
+                    }
+                    codes.forEach(code => rows.push([usernameOf(u.email), code, branchNameByCode.get(code) || '', u.role, brandLabel]));
+                });
+            const workbook = new ExcelJS.Workbook();
+            addStyledSheet(workbook, 'Mapping', ['Username', 'Branch Code', 'Branch Name', 'Role', 'Brand'], [22, 14, 32, 10, 22], rows);
+            addMappingReferenceSheets(workbook);
+            await downloadWorkbookBuffer(workbook, 'Mapping_Cabang_' + mappingBrandSlug() + '_' + todayWIB() + '.xlsx');
+        };
+
+        const handleMappingFileUpload = async (event) => {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file || isImportingMapping.value) return;
+
+            isImportingMapping.value = true;
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === 'mapping') || workbook.SheetNames[0];
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+                if (rows.length === 0) { toast('File Excel kosong!', 'warn'); return; }
+
+                const usernameCol = findCol(rows[0], 'Username', 'User', 'Email');
+                const codeCol = findCol(rows[0], 'Branch Code', 'Kode Cabang', 'Kode');
+                if (!usernameCol || !codeCol) { toast('Kolom "Username" dan "Branch Code" wajib ada.', 'error'); return; }
+
+                const userByName = new Map(mappingUsersAll.value.map(u => [usernameOf(u.email).toLowerCase(), u]));
+                const codeByLower = new Map(mappingBranchOptions.value.map(o => [String(o.value).toLowerCase(), o.value]));
+                const desired = new Map();
+                const invalid = [];
+
+                rows.forEach((row, idx) => {
+                    const rawUser = String(row[usernameCol] || '').trim();
+                    const rawCode = String(row[codeCol] || '').trim();
+                    if (!rawUser && !rawCode) return;
+                    const line = idx + 2;
+                    const user = userByName.get(rawUser.split('@')[0].toLowerCase());
+                    if (!user) { invalid.push(`Baris ${line}: user "${rawUser}" gak ada / bukan SM, AM, AMKA brand ini`); return; }
+                    if (!desired.has(user.email)) desired.set(user.email, new Set());
+                    if (!rawCode) return;
+                    const code = codeByLower.get(rawCode.toLowerCase());
+                    if (!code) { invalid.push(`Baris ${line}: kode cabang "${rawCode}" gak ada di brand ini`); return; }
+                    desired.get(user.email).add(code);
+                });
+
+                if (invalid.length) {
+                    console.warn('Import mapping dibatalkan:', invalid);
+                    const preview = invalid.slice(0, 3).join(' | ');
+                    const more = invalid.length > 3 ? ` (+${invalid.length - 3} lainnya, cek console)` : '';
+                    toast('Import dibatalkan. ' + preview + more, 'error');
+                    return;
+                }
+                if (desired.size === 0) { toast('Gak ada baris yang bisa diimport.', 'warn'); return; }
+
+                const toAdd = [];
+                const toRemoveByEmail = new Map();
+                desired.forEach((codes, email) => {
+                    const current = mappedCodesInBrandFor(email);
+                    const removed = current.filter(c => !codes.has(c));
+                    if (removed.length) toRemoveByEmail.set(email, removed);
+                    [...codes].filter(c => !current.includes(c)).forEach(c => toAdd.push({ email, branch_code: c }));
+                });
+                const removeCount = [...toRemoveByEmail.values()].reduce((sum, list) => sum + list.length, 0);
+
+                if (toAdd.length === 0 && removeCount === 0) { toast('Mapping di file udah sama persis sama yang sekarang.', 'info'); return; }
+
+                const ok = await confirmDialog(
+                    `Import mapping buat ${desired.size} user: ${toAdd.length} cabang ditambah, ${removeCount} cabang dilepas. Lanjut?`,
+                    { confirmLabel: 'Ya, Import' }
+                );
+                if (!ok) return;
+
+                for (const [email, codes] of toRemoveByEmail) {
+                    const { data: removed, error } = await supabaseClient
+                        .from('branch_access')
+                        .delete()
+                        .eq('email', email)
+                        .in('branch_code', codes)
+                        .select();
+                    if (error) { toast('Gagal lepas mapping ' + usernameOf(email) + ': ' + error.message, 'error'); await fetchData(); return; }
+                    if (!removed || removed.length !== codes.length) { toast('Gagal lepas mapping ' + usernameOf(email) + ': role Antum gak punya akses.', 'error'); await fetchData(); return; }
+                }
+
+                if (toAdd.length) {
+                    const { error } = await supabaseClient.from('branch_access').insert(toAdd);
+                    if (error) { toast('Gagal tambah mapping: ' + error.message, 'error'); await fetchData(); return; }
+                }
+
+                toast(`Import mapping beres: ${toAdd.length} ditambah, ${removeCount} dilepas.`, 'success');
+                cancelEditMapping();
+                await fetchData();
+            } catch (err) {
+                console.error('Gagal import mapping:', err);
+                toast('Gagal baca file Excel.', 'error');
+            } finally {
+                isImportingMapping.value = false;
+            }
+        };
         const productOptions = computed(() => brandProducts.value.map(p => ({
             value: p.id,
             label: p.unit ? `${p.name} (${p.unit})` : p.name
@@ -1415,14 +1654,13 @@ const app = createApp({
             return { role: data?.role || 'SM', brand: data?.brand ?? null };
         };
 
-        const fetchBranchCode = async (email) => {
+        const fetchBranchCodes = async (email) => {
             const { data, error } = await supabaseClient
                 .from('branch_access')
                 .select('branch_code')
-                .ilike('email', email)
-                .maybeSingle();
+                .ilike('email', email);
             if (error) console.error('Gagal ambil branch access:', error);
-            return data?.branch_code ?? null;
+            return (data || []).map(r => r.branch_code).filter(Boolean);
         };
 
         const handleLogin = async () => {
@@ -1464,7 +1702,7 @@ const app = createApp({
                 userEmail.value = usernameInput;
                 userRole.value = role;
                 userBrand.value = brand;
-                userBranchCode.value = role === 'SM' ? await fetchBranchCode(fullEmail) : null;
+                userBranchCodes.value = BRANCH_SCOPED_ROLES.includes(role) ? await fetchBranchCodes(fullEmail) : [];
                 if (brand) {
                     selectedBrand.value = brand;
                 }
@@ -1524,11 +1762,19 @@ const app = createApp({
                 masterPics.value = picRes.data || [];
 
                 if (userRole.value === 'Master') {
-                    const { data: userRolesData } = await supabaseClient.from('user_roles').select('*').order('email');
-                    masterUsers.value = userRolesData || [];
+                    const [userRolesRes, branchAccessRes] = await Promise.all([
+                        supabaseClient.from('user_roles').select('*').order('email'),
+                        supabaseClient.from('branch_access').select('*')
+                    ]);
+                    masterUsers.value = userRolesRes.data || [];
+                    branchAccessRows.value = branchAccessRes.data || [];
                 }
 
-                if (userRole.value === 'AM' || userRole.value === 'Master') {
+                if (isBranchScoped.value && currentSessionEmail) {
+                    userBranchCodes.value = await fetchBranchCodes(currentSessionEmail);
+                }
+
+                if (userRole.value === 'AM' || userRole.value === 'AMKA' || userRole.value === 'Master') {
                     await expireOverduePRs();
                 }
             } catch (err) {
@@ -2366,7 +2612,7 @@ const app = createApp({
                 userEmail.value = session.user.email.split('@')[0];
                 userRole.value = role;
                 userBrand.value = brand;
-                userBranchCode.value = role === 'SM' ? await fetchBranchCode(session.user.email) : null;
+                userBranchCodes.value = BRANCH_SCOPED_ROLES.includes(role) ? await fetchBranchCodes(session.user.email) : [];
                 if (brand) {
                     selectedBrand.value = brand;
                 } else {
@@ -2405,7 +2651,7 @@ const app = createApp({
             toasts, dismissToast, confirmState, resolveConfirm,
             isLoggedIn, appBooting, userEmail, userRole, loginForm, loginError, sessionExpiredMessage, isLoading, showPassword, handleLogin, handleLogout,
             isSyncing,
-            selectedBrand, userBrand, userBranchCode, activeBrand, chooseBrand, backToBrandPicker,
+            selectedBrand, userBrand, userBranchCodes, noBranchMapping, canAccessBranch, activeBrand, chooseBrand, backToBrandPicker,
             currentTab, goToTab, mobileSidebarOpen, prs, pos, prItems, itemsByPrId, form, pendingPRs, filteredPRs, brandPRs, brandPOs, filteredPOs, filterStatus,
             donutTotal, donutSegments, donutLabelSegments, expiringSoonPRs, topItemsByPOCount, topItemsByQtyCount,
             dashBranchFilter, dashDateRange,
@@ -2431,6 +2677,9 @@ const app = createApp({
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
             masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser, isSelfUserRow,
             selectedUserIds, allUsersSelected, toggleUserSelect, toggleSelectAllUsers, deleteUsers, isDeletingUsers,
+            mappingSearchQuery, mappingUsers, mappingBranchOptions, mappedBranchNamesFor, editingMappingEmail, editMappingCodes, isSavingMapping,
+            startEditMapping, cancelEditMapping, saveMapping,
+            isImportingMapping, downloadMappingTemplate, exportMapping, handleMappingFileUpload,
             formatRp, formatDate, formatDateTime, submitPR, submitPRAsApproved, saveEditingPRAsDraft, approvePR, rejectPR
         };
         provide('appCtx', ctx);

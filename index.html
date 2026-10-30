@@ -198,6 +198,7 @@
         </div>
 
         <div class="main-content">
+            <div v-if="noBranchMapping" class="login-notice">Akun Antum belum punya mapping cabang, jadi belum ada PR/PO yang bisa ditampilin. Hubungi Master ya.</div>
             <transition name="fade" mode="out-in">
                 <component :is="sectionComponents[currentSection]" :key="currentSection"></component>
             </transition>

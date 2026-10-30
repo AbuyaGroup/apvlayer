@@ -1,7 +1,7 @@
 <transition name="fade" mode="out-in">
                 <div v-if="currentTab === 'master-hub'" key="master-hub">
                     <h2 style="margin-bottom: 5px;">Master Data</h2>
-                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Kelola data master untuk Branch, Product, dan PIC di sini.</p>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Kelola data master untuk Branch, Product, PIC, User, dan Mapping Cabang di sini.</p>
 
                     <div class="dc-grid" style="max-width: 800px;">
                         <div class="dc-card" @click="currentTab = 'master-branch'">
@@ -19,6 +19,10 @@
                         <div class="dc-card" @click="currentTab = 'master-user'">
                             <div class="dc-icon" style="background: var(--primary-soft);"><i class="bi bi-person-plus-fill" style="color: var(--primary);"></i></div>
                             <h3 class="name">Master User</h3>
+                        </div>
+                        <div class="dc-card" @click="currentTab = 'master-mapping'">
+                            <div class="dc-icon" style="background: var(--danger-soft);"><i class="bi bi-diagram-3-fill" style="color: var(--danger);"></i></div>
+                            <h3 class="name">Mapping Cabang</h3>
                         </div>
                     </div>
                 </div>
@@ -273,6 +277,61 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-mapping'" key="master-mapping">
+                    <button class="btn-ghost mb-4" @click="currentTab = 'master-hub'" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <h2 style="margin-bottom: 5px;">Master Data - Mapping Cabang</h2>
+                    <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">Atur cabang yang dipegang tiap akun SM, AM, dan AMKA. Akun tanpa mapping gak bisa liat PR/PO dan gak bisa bikin PR.</p>
+                    <div class="mapping-toolbar">
+                        <div class="search-box mapping-search">
+                            <i class="bi bi-search"></i>
+                            <input type="text" placeholder="Cari username..." v-model="mappingSearchQuery">
+                        </div>
+                        <div class="mapping-actions">
+                            <button type="button" class="btn-ghost" @click="downloadMappingTemplate"><i class="bi bi-file-earmark-arrow-down me-1"></i> Template</button>
+                            <input type="file" ref="mappingFileInput" @change="handleMappingFileUpload" accept=".xlsx, .xls" style="display: none;">
+                            <button type="button" class="btn-ghost" :disabled="isImportingMapping" @click="$refs.mappingFileInput.click()"><i class="bi bi-upload me-1"></i> {{ isImportingMapping ? 'Mengimpor...' : 'Import' }}</button>
+                            <button type="button" class="btn-primary" @click="exportMapping"><i class="bi bi-file-earmark-excel me-1"></i> Export</button>
+                        </div>
+                    </div>
+                    <p class="mapping-hint">Import pake kolom <b>Username</b> & <b>Branch Code</b>, satu baris satu cabang. User yang ada di file, mapping-nya diganti persis sesuai file (Branch Code kosong = lepas semua cabang). User yang gak ada di file gak berubah.</p>
+                    <div class="produk-table-wrap table-scroll">
+                        <table class="produk-table">
+                            <thead><tr>
+                                <th>Username</th><th>Role</th><th>Brand</th><th>Cabang</th><th style="text-align:right;">Aksi</th>
+                            </tr></thead>
+                            <tbody v-if="isLoading || isSyncing">
+                                <tr v-for="n in 6" :key="'skel-'+n" class="skeleton-row">
+                                    <td v-for="c in 5" :key="c"><div class="skel-bar"></div></td>
+                                </tr>
+                            </tbody>
+                            <tbody v-else>
+                                <tr v-for="u in mappingUsers" :key="u.email">
+                                    <td class="fw-bold">{{ (u.email || '').split('@')[0] }}</td>
+                                    <td>{{ u.role }}</td>
+                                    <td>{{ u.brand || 'Semua Brand' }}</td>
+                                    <td>
+                                        <div v-if="editingMappingEmail === u.email" class="mapping-edit-col">
+                                            <multi-select v-model="editMappingCodes" :options="mappingBranchOptions" placeholder="Pilih Cabang"></multi-select>
+                                        </div>
+                                        <div v-else-if="mappedBranchNamesFor(u.email).length" class="branch-chip-list">
+                                            <span v-for="name in mappedBranchNamesFor(u.email)" :key="name" class="branch-chip">{{ name }}</span>
+                                        </div>
+                                        <span v-else class="mapping-empty">Belum ada mapping</span>
+                                    </td>
+                                    <td style="text-align:right; white-space:nowrap;">
+                                        <template v-if="editingMappingEmail === u.email">
+                                            <button class="btn-icon success" @click="saveMapping(u)" :disabled="isSavingMapping" title="Simpan"><i class="bi bi-check-lg"></i></button>
+                                            <button class="btn-icon" @click="cancelEditMapping" title="Batal"><i class="bi bi-x-lg"></i></button>
+                                        </template>
+                                        <button v-else class="btn-icon" @click="startEditMapping(u)" title="Edit Mapping"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                                <tr v-if="mappingUsers.length === 0"><td colspan="5" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada akun SM/AM/AMKA yang cocok.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 

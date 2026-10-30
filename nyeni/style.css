@@ -472,6 +472,15 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.5p
 .skel-dash-list-row .skel-bar:first-child{ max-width:220px; }
 .skel-dash-list-row .skel-bar:last-child{ max-width:40px; }
 
+.branch-chip-list{ display:flex; flex-wrap:wrap; gap:6px; }
+.branch-chip{ font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:20px; background:var(--primary-soft); color:var(--primary-deep); white-space:nowrap; }
+.mapping-empty{ font-size:12.5px; font-weight:600; color:var(--danger); }
+.mapping-edit-col{ min-width:260px; }
+.mapping-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+.mapping-search{ flex:1 1 260px; max-width:420px; min-width:0; }
+.mapping-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+.mapping-hint{ font-size:12px; color:var(--muted); margin:0 0 16px; }
+
 @media (max-width: 860px){
     .field input, .field select, .field textarea, select,
     .ss-control, .search-box input, .date-range-filter input[type="text"], .date-picker-field input{
