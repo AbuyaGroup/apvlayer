@@ -1115,6 +1115,8 @@ const app = createApp({
         const editPicForm = ref({ pic_name: '', shipping: '', brand: '' });
         const selectedPicIds = ref([]);
         const addPicForm = ref({ pic_name: '', shipping: '', brand: '' });
+        const addBranchForm = ref({ branch_name: '', branch_code: '', brand: '' });
+        const addProductForm = ref({ name: '', unit: '', brand: '' });
 
         const newUserForm = ref({ username: '', password: '', role: '', brand: '' });
         const isCreatingUser = ref(false);
@@ -1915,6 +1917,55 @@ const app = createApp({
             fetchData();
         };
 
+        const addBranch = async () => {
+            const branchName = addBranchForm.value.branch_name.trim();
+            const branchCode = addBranchForm.value.branch_code.trim().toUpperCase();
+            const brand = addBranchForm.value.brand || deriveBrandFromBranchName(branchName);
+            if (!branchName) { toast('Nama cabang gak boleh kosong.', 'warn'); return; }
+            if (!branchCode) { toast('Kode cabang gak boleh kosong, dipake buat Mapping Cabang.', 'warn'); return; }
+            if (!brand) { toast('Pilih brand dulu ya.', 'warn'); return; }
+            if (masterBranches.value.some(b => (b.branch_name || '').toLowerCase() === branchName.toLowerCase())) {
+                toast('Nama cabang "' + branchName + '" udah ada.', 'warn'); return;
+            }
+            if (masterBranches.value.some(b => (b.branch_code || '').toLowerCase() === branchCode.toLowerCase())) {
+                toast('Kode cabang "' + branchCode + '" udah dipake cabang lain.', 'warn'); return;
+            }
+            const { error } = await supabaseClient.from('master_branches').insert({
+                branch_name: branchName,
+                branch_code: branchCode,
+                brand
+            });
+            if (error) {
+                toast('Gagal simpan cabang: ' + error.message, 'error');
+                return;
+            }
+            addBranchForm.value = { branch_name: '', branch_code: '', brand: '' };
+            toast('Cabang berhasil ditambahkan!', 'success');
+            fetchData();
+        };
+
+        const addProduct = async () => {
+            const name = addProductForm.value.name.trim();
+            const unit = addProductForm.value.unit.trim() || null;
+            if (!name) { toast('Nama produk gak boleh kosong.', 'warn'); return; }
+            const isDuplicate = masterProducts.value.some(p =>
+                (p.name || '').toLowerCase() === name.toLowerCase() && (p.unit || '').toLowerCase() === (unit || '').toLowerCase()
+            );
+            if (isDuplicate) { toast('Produk "' + name + (unit ? ' (' + unit + ')' : '') + '" udah ada.', 'warn'); return; }
+            const { error } = await supabaseClient.from('master_products').insert({
+                name,
+                unit,
+                brand: addProductForm.value.brand || null
+            });
+            if (error) {
+                toast('Gagal simpan produk: ' + error.message, 'error');
+                return;
+            }
+            addProductForm.value = { name: '', unit: '', brand: '' };
+            toast('Produk berhasil ditambahkan!', 'success');
+            fetchData();
+        };
+
         const createNewUser = async () => {
             const username = newUserForm.value.username.trim();
             const password = newUserForm.value.password;
@@ -2673,6 +2724,7 @@ const app = createApp({
             editingProductId, editProductForm, selectedProductIds, allProductsSelected,
             toggleProductSelect, toggleSelectAllProducts, startEditProduct, cancelEditProduct, saveEditProduct, deleteProducts,
             editingPicId, editPicForm, selectedPicIds, allPicsSelected, addPicForm, addPic,
+            addBranchForm, addBranch, addProductForm, addProduct,
             togglePicSelect, toggleSelectAllPics, startEditPic, cancelEditPic, saveEditPic, deletePics,
             newUserForm, isCreatingUser, createNewUser, handleUserFileUpload, ROLE_SELECT_OPTIONS,
             masterUsers, filteredUsers, userSearchQuery, editingUserId, editUserForm, startEditUser, cancelEditUser, saveEditUser, isSelfUserRow,

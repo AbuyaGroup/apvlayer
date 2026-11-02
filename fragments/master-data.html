@@ -32,9 +32,27 @@
                     <h2 style="margin-bottom: 24px;">Master Data - Branch</h2>
                     <div class="row">
                         <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); margin-bottom: 20px; overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New Branch</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Nama Cabang</label>
+                                    <input type="text" v-model="addBranchForm.branch_name">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Kode Cabang</label>
+                                    <input type="text" v-model="addBranchForm.branch_code" style="text-transform: uppercase;">
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="addBranchForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="-- Pilih Brand --"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="addBranch">
+                                    <i class="bi bi-plus-lg me-1"></i> Tambah Cabang
+                                </button>
+                            </div>
                             <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
                                 <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
-                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah cabang cuma lewat upload Excel</p>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah banyak cabang lewat upload Excel</p>
                                 <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Branch Name</b> (wajib), <b>Branch Code</b> (opsional).</p>
                                 <input type="file" ref="branchFileInput" @change="handleFileUpload" accept=".xlsx, .xls" style="display: none;">
                                 <button type="button" class="btn-primary w-100" @click="$refs.branchFileInput.click()">
@@ -111,9 +129,27 @@
                     <h2 style="margin-bottom: 24px;">Master Data - Product</h2>
                     <div class="row">
                         <div class="col-md-4">
+                            <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); margin-bottom: 20px; overflow: visible;">
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New Product</p>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Nama Produk</label>
+                                    <input type="text" v-model="addProductForm.name">
+                                </div>
+                                <div class="field" style="margin-bottom: 12px;">
+                                    <label>Unit</label>
+                                    <input type="text" v-model="addProductForm.unit">
+                                </div>
+                                <div class="field" style="margin-bottom: 14px;">
+                                    <label>Brand</label>
+                                    <searchable-select v-model="addProductForm.brand" :options="BRAND_SELECT_OPTIONS" placeholder="Semua Brand"></searchable-select>
+                                </div>
+                                <button type="button" class="btn-primary w-100" @click="addProduct">
+                                    <i class="bi bi-plus-lg me-1"></i> Tambah Produk
+                                </button>
+                            </div>
                             <div class="produk-table-wrap" style="padding: 20px; background: var(--surface-1); text-align: center;">
                                 <i class="bi bi-file-earmark-excel" style="font-size: 32px; color: var(--success); margin-bottom: 10px; display: inline-block;"></i>
-                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah produk cuma lewat upload Excel</p>
+                                <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 4px;">Tambah banyak produk lewat upload Excel</p>
                                 <p style="font-size: 11.5px; color: var(--muted); margin-bottom: 14px;">Kolom yang dibutuhkan: <b>Product Name</b> (wajib), <b>Unit</b> (opsional, misal pcs/Carton/kg), <b>Brand</b> (opsional -- kosongin kalo produk berlaku buat semua brand).</p>
                                 <input type="file" ref="productFileInput" @change="handleProductFileUpload" accept=".xlsx, .xls" style="display: none;">
                                 <button type="button" class="btn-primary w-100" @click="$refs.productFileInput.click()">
