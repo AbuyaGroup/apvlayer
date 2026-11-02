@@ -120,12 +120,11 @@ const SearchableSelect = {
         const updatePanelPosition = () => {
             if (!wrapEl.value) return;
             const rect = wrapEl.value.getBoundingClientRect();
-            panelStyle.value = {
-                position: 'fixed',
-                top: (rect.bottom + 6) + 'px',
-                left: rect.left + 'px',
-                width: rect.width + 'px'
-            };
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUp = spaceBelow < 320 && rect.top > spaceBelow;
+            panelStyle.value = openUp
+                ? { position: 'fixed', top: 'auto', bottom: (window.innerHeight - rect.top + 6) + 'px', left: rect.left + 'px', width: rect.width + 'px', transformOrigin: 'bottom center' }
+                : { position: 'fixed', top: (rect.bottom + 6) + 'px', bottom: 'auto', left: rect.left + 'px', width: rect.width + 'px' };
         };
 
         const closeDropdown = () => { isOpen.value = false; };
@@ -230,12 +229,11 @@ const MultiSelectDropdown = {
         const updatePanelPosition = () => {
             if (!wrapEl.value) return;
             const rect = wrapEl.value.getBoundingClientRect();
-            panelStyle.value = {
-                position: 'fixed',
-                top: (rect.bottom + 6) + 'px',
-                left: rect.left + 'px',
-                width: rect.width + 'px'
-            };
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUp = spaceBelow < 320 && rect.top > spaceBelow;
+            panelStyle.value = openUp
+                ? { position: 'fixed', top: 'auto', bottom: (window.innerHeight - rect.top + 6) + 'px', left: rect.left + 'px', width: rect.width + 'px', transformOrigin: 'bottom center' }
+                : { position: 'fixed', top: (rect.bottom + 6) + 'px', bottom: 'auto', left: rect.left + 'px', width: rect.width + 'px' };
         };
 
         const closeDropdown = () => { isOpen.value = false; };
@@ -554,7 +552,8 @@ const TAB_TO_SECTION = {
     'master-product': 'master-data',
     'master-pic': 'master-data',
     'master-user': 'master-data',
-    'master-mapping': 'master-data'
+    'master-mapping': 'master-data',
+    'master-mapping-edit': 'master-data'
 };
 
 const BRANCH_SCOPED_ROLES = ['SM', 'AM', 'AMKA'];
@@ -827,6 +826,7 @@ const app = createApp({
         const branchAccessRows = ref([]);
         const isBranchScoped = computed(() => BRANCH_SCOPED_ROLES.includes(userRole.value));
         const noBranchMapping = computed(() => isBranchScoped.value && userBranchCodes.value.length === 0);
+        const editingMappingEmail = ref(null);
 
         const currentTab = ref('dashboard');
         const currentSection = computed(() => TAB_TO_SECTION[currentTab.value] || 'dashboard');
@@ -866,7 +866,8 @@ const app = createApp({
                     currentTab.value = pathTab;
                     return;
                 }
-                const saved = localStorage.getItem('lastActiveTab');
+                let saved = localStorage.getItem('lastActiveTab');
+                if (saved === 'master-mapping-edit') saved = 'master-mapping';
 
                 if (saved && saved !== 'edit-pr' && saved !== 'view-po' && (!saved.startsWith('master') || role === 'Master')) {
                     currentTab.value = saved;
@@ -1016,6 +1017,10 @@ const app = createApp({
             if (currentTab.value === 'view-po' && viewingPOId.value) {
                 return { path: '/purchase-order/' + viewingPOId.value, title: 'Detail Purchase Order' };
             }
+            if (currentTab.value === 'master-mapping-edit' && editingMappingEmail.value) {
+                const username = editingMappingEmail.value.split('@')[0];
+                return { path: '/master-data/mapping/' + username, title: 'Mapping Cabang - ' + username };
+            }
             return ROUTE_META[currentTab.value] || ROUTE_META['dashboard'];
         };
         const applyRoute = () => {
@@ -1026,7 +1031,10 @@ const app = createApp({
                 if (window.location.pathname !== path) history.replaceState(null, '', path);
             } catch (e) {}
         };
-        watch([isLoggedIn, userRole, selectedBrand, currentTab, editingPRId, viewingPOId, appBooting], applyRoute, { immediate: true });
+        watch([isLoggedIn, userRole, selectedBrand, currentTab, editingPRId, viewingPOId, editingMappingEmail, appBooting], applyRoute, { immediate: true });
+        watch([currentTab, editingMappingEmail], () => {
+            if (currentTab.value === 'master-mapping-edit' && !editingMappingEmail.value) currentTab.value = 'master-mapping';
+        });
 
         const PO_EXPORT_HEADERS = ['Purchase Date', 'Required Date', 'PO Number', 'PR Number', 'Branch', 'Product Name', 'Unit', 'Purchase Qty', 'Shipping', 'PIC', 'Notes', 'PO Created By'];
         const PO_EXPORT_COLS = [
@@ -1410,9 +1418,10 @@ const app = createApp({
         });
 
         const mappingSearchQuery = ref('');
-        const editingMappingEmail = ref(null);
         const editMappingCodes = ref([]);
         const isSavingMapping = ref(false);
+        const mappingBranchSearch = ref('');
+        const mappingShowSelectedOnly = ref(false);
 
         const mappingUsersAll = computed(() => masterUsers.value.filter(u =>
             BRANCH_SCOPED_ROLES.includes(u.role) && (!activeBrand.value || !u.brand || u.brand === activeBrand.value)
@@ -1442,13 +1451,47 @@ const app = createApp({
             return mappedCodesFor(email).filter(c => brandCodes.has(c));
         };
 
+        const editingMappingUser = computed(() =>
+            masterUsers.value.find(u => u.email === editingMappingEmail.value) || null
+        );
+
+        const visibleMappingBranches = computed(() => {
+            let list = mappingBranchOptions.value;
+            if (mappingShowSelectedOnly.value) list = list.filter(o => editMappingCodes.value.includes(o.value));
+            if (mappingBranchSearch.value) {
+                const query = mappingBranchSearch.value.toLowerCase();
+                list = list.filter(o => o.label.toLowerCase().includes(query) || String(o.value).toLowerCase().includes(query));
+            }
+            return list;
+        });
+
+        const mappingHoldersFor = (code) => branchAccessRows.value
+            .filter(r => r.branch_code === code && (r.email || '').toLowerCase() !== (editingMappingEmail.value || '').toLowerCase())
+            .map(r => (r.email || '').split('@')[0]);
+
+        const toggleMappingCode = (code) => {
+            const idx = editMappingCodes.value.indexOf(code);
+            if (idx === -1) editMappingCodes.value.push(code);
+            else editMappingCodes.value.splice(idx, 1);
+        };
+        const selectVisibleMappingBranches = () => {
+            const merged = new Set(editMappingCodes.value);
+            visibleMappingBranches.value.forEach(o => merged.add(o.value));
+            editMappingCodes.value = [...merged];
+        };
+        const clearMappingCodes = () => { editMappingCodes.value = []; };
+
         const startEditMapping = (u) => {
             editingMappingEmail.value = u.email;
             editMappingCodes.value = mappedCodesInBrandFor(u.email);
+            mappingBranchSearch.value = '';
+            mappingShowSelectedOnly.value = false;
+            currentTab.value = 'master-mapping-edit';
         };
         const cancelEditMapping = () => {
             editingMappingEmail.value = null;
             editMappingCodes.value = [];
+            if (currentTab.value === 'master-mapping-edit') currentTab.value = 'master-mapping';
         };
 
         const saveMapping = async (u) => {
@@ -2731,6 +2774,8 @@ const app = createApp({
             selectedUserIds, allUsersSelected, toggleUserSelect, toggleSelectAllUsers, deleteUsers, isDeletingUsers,
             mappingSearchQuery, mappingUsers, mappingBranchOptions, mappedBranchNamesFor, editingMappingEmail, editMappingCodes, isSavingMapping,
             startEditMapping, cancelEditMapping, saveMapping,
+            editingMappingUser, mappingBranchSearch, mappingShowSelectedOnly, visibleMappingBranches, mappingHoldersFor,
+            toggleMappingCode, selectVisibleMappingBranches, clearMappingCodes,
             isImportingMapping, downloadMappingTemplate, exportMapping, handleMappingFileUpload,
             formatRp, formatDate, formatDateTime, submitPR, submitPRAsApproved, saveEditingPRAsDraft, approvePR, rejectPR
         };

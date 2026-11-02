@@ -36,11 +36,11 @@
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New Branch</p>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Nama Cabang</label>
-                                    <input type="text" v-model="addBranchForm.branch_name">
+                                    <input type="text" v-model="addBranchForm.branch_name" placeholder="Nama cabang">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Kode Cabang</label>
-                                    <input type="text" v-model="addBranchForm.branch_code" style="text-transform: uppercase;">
+                                    <input type="text" v-model="addBranchForm.branch_code" placeholder="Misal AFCC" style="text-transform: uppercase;">
                                 </div>
                                 <div class="field" style="margin-bottom: 14px;">
                                     <label>Brand</label>
@@ -133,11 +133,11 @@
                                 <p style="font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 14px;">New Product</p>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Nama Produk</label>
-                                    <input type="text" v-model="addProductForm.name">
+                                    <input type="text" v-model="addProductForm.name" placeholder="Nama produk / barang">
                                 </div>
                                 <div class="field" style="margin-bottom: 12px;">
                                     <label>Unit</label>
-                                    <input type="text" v-model="addProductForm.unit">
+                                    <input type="text" v-model="addProductForm.unit" placeholder="Misal pcs / Carton / kg">
                                 </div>
                                 <div class="field" style="margin-bottom: 14px;">
                                     <label>Brand</label>
@@ -349,26 +349,63 @@
                                     <td>{{ u.role }}</td>
                                     <td>{{ u.brand || 'Semua Brand' }}</td>
                                     <td>
-                                        <div v-if="editingMappingEmail === u.email" class="mapping-edit-col">
-                                            <multi-select v-model="editMappingCodes" :options="mappingBranchOptions" placeholder="Pilih Cabang"></multi-select>
-                                        </div>
-                                        <div v-else-if="mappedBranchNamesFor(u.email).length" class="branch-chip-list">
+                                        <div v-if="mappedBranchNamesFor(u.email).length" class="branch-chip-list">
                                             <span v-for="name in mappedBranchNamesFor(u.email)" :key="name" class="branch-chip">{{ name }}</span>
                                         </div>
                                         <span v-else class="mapping-empty">Belum ada mapping</span>
                                     </td>
                                     <td style="text-align:right; white-space:nowrap;">
-                                        <template v-if="editingMappingEmail === u.email">
-                                            <button class="btn-icon success" @click="saveMapping(u)" :disabled="isSavingMapping" title="Simpan"><i class="bi bi-check-lg"></i></button>
-                                            <button class="btn-icon" @click="cancelEditMapping" title="Batal"><i class="bi bi-x-lg"></i></button>
-                                        </template>
-                                        <button v-else class="btn-icon" @click="startEditMapping(u)" title="Edit Mapping"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn-icon" @click="startEditMapping(u)" title="Edit Mapping"><i class="bi bi-pencil"></i></button>
                                     </td>
                                 </tr>
                                 <tr v-if="mappingUsers.length === 0"><td colspan="5" style="text-align:center; color: var(--muted); padding: 24px;">Gak ada akun SM/AM/AMKA yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                <div v-else-if="currentTab === 'master-mapping-edit'" key="master-mapping-edit">
+                    <button class="btn-ghost mb-4" @click="cancelEditMapping" style="padding: 6px 12px;"><i class="bi bi-arrow-left"></i> Back</button>
+                    <template v-if="editingMappingUser">
+                        <h2 style="margin-bottom: 5px;">Mapping Cabang - {{ (editingMappingUser.email || '').split('@')[0] }}</h2>
+                        <p style="color: var(--muted); font-size: 14px; margin-bottom: 24px;">{{ editingMappingUser.role }} · {{ editingMappingUser.brand || 'Semua Brand' }}</p>
+
+                        <div class="mapping-edit-card">
+                            <div class="mapping-edit-toolbar">
+                                <div class="search-box mapping-search">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" placeholder="Cari nama / kode cabang..." v-model="mappingBranchSearch">
+                                </div>
+                                <div class="mapping-actions">
+                                    <button type="button" class="btn-ghost" :class="{ 'mapping-toggle-active': mappingShowSelectedOnly }" @click="mappingShowSelectedOnly = !mappingShowSelectedOnly">
+                                        <i class="bi bi-funnel me-1"></i> {{ mappingShowSelectedOnly ? 'Tampilkan Semua' : 'Yang Dipilih Aja' }}
+                                    </button>
+                                    <button type="button" class="btn-ghost" @click="selectVisibleMappingBranches"><i class="bi bi-check2-all me-1"></i> Pilih Semua</button>
+                                    <button type="button" class="btn-ghost" @click="clearMappingCodes"><i class="bi bi-x-circle me-1"></i> Kosongkan</button>
+                                </div>
+                            </div>
+
+                            <div class="mapping-edit-summary">{{ editMappingCodes.length }} dari {{ mappingBranchOptions.length }} cabang dipilih</div>
+
+                            <div class="mapping-branch-grid">
+                                <div v-for="o in visibleMappingBranches" :key="o.value" class="mapping-branch-item" :class="{ checked: editMappingCodes.includes(o.value) }" @click="toggleMappingCode(o.value)">
+                                    <span class="ms-checkbox" :class="{ checked: editMappingCodes.includes(o.value) }"><i v-if="editMappingCodes.includes(o.value)" class="bi bi-check-lg"></i></span>
+                                    <div style="min-width:0;">
+                                        <div class="mapping-branch-name">{{ o.label }}</div>
+                                        <div class="mapping-branch-code">{{ o.value }}<span v-if="mappingHoldersFor(o.value).length"> · dipegang {{ mappingHoldersFor(o.value).join(', ') }}</span></div>
+                                    </div>
+                                </div>
+                                <div v-if="visibleMappingBranches.length === 0" class="mapping-branch-empty">Gak ada cabang yang cocok.</div>
+                            </div>
+
+                            <div class="mapping-edit-footer">
+                                <button type="button" class="btn-ghost" @click="cancelEditMapping">Batal</button>
+                                <button type="button" class="btn-primary" :disabled="isSavingMapping" @click="saveMapping(editingMappingUser)">
+                                    <i class="bi bi-check-lg me-1"></i> {{ isSavingMapping ? 'Menyimpan...' : 'Simpan Mapping' }}
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 <div v-else key="master-user">
